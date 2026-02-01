@@ -1,0 +1,32 @@
+{
+  "name": "zappy-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "ts-node src/index.ts",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Japhetjohn/zappy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Japhetjohn/zappy/issues"
+  },
+  "homepage": "https://github.com/Japhetjohn/zappy#readme",
+  "dependencies": {
+    "@types/node": "^25.1.0",
+    "axios": "^1.13.4",
+    "better-sqlite3": "^12.6.2",
+    "dotenv": "^17.2.3",
+    "telegraf": "^4.16.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
