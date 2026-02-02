@@ -1,97 +1,119 @@
 import { Scenes, Markup } from 'telegraf';
 import { switchService } from '../../services/switch';
-
-// Helper to format numbers nicely
-const formatAmount = (num: number): string => {
-    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(num);
-};
+import { formatAmount } from '../../utils';
 
 const onrampWizard = new Scenes.WizardScene(
     'onramp-wizard',
 
     // ═══════════════════════════════════════════════════════════
-    // Step 1: Welcome & Asset Selection
+    // Step 1: Asset Selection (Dynamic)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         ctx.wizard.state.data = {};
+        try {
+            await ctx.replyWithMarkdown('⏳ _Fetching available assets..._');
+            const assets = await switchService.getAssets();
+            ctx.wizard.state.assets = assets;
 
-        const msg = `
+            // Group by blockchain
+            const grouped: Record<string, any[]> = {};
+            assets.forEach(a => {
+                const chainName = a.blockchain.name;
+                if (!grouped[chainName]) grouped[chainName] = [];
+                grouped[chainName].push(a);
+            });
+
+            const msg = `
 💰 *Buy Crypto*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Select the crypto you want to buy:
+Select the asset you want to buy:
 `;
-        await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard([
-            [
-                Markup.button.callback('USDC (Base)', 'base:usdc'),
-                Markup.button.callback('USDC (ETH)', 'ethereum:usdc')
-            ],
-            [
-                Markup.button.callback('USDT (Tron)', 'tron:usdt'),
-                Markup.button.callback('USDT (BEP20)', 'bsc:usdt')
-            ],
-            [Markup.button.callback('❌ Cancel', 'cancel')]
-        ]));
-        return ctx.wizard.next();
+            const buttons = [];
+            for (const [chain, chainAssets] of Object.entries(grouped)) {
+                const row = chainAssets.map(a => Markup.button.callback(`${a.code} (${chain})`, `asset:${a.id}`));
+                // Split into rows of 2
+                for (let i = 0; i < row.length; i += 2) {
+                    buttons.push(row.slice(i, i + 2));
+                }
+            }
+            buttons.push([Markup.button.callback('❌ Cancel', 'cancel')]);
+
+            await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard(buttons));
+            return ctx.wizard.next();
+        } catch (error: any) {
+            await ctx.replyWithMarkdown(`❌ *Error:* Failed to fetch assets. ${error.message}`);
+            return ctx.scene.leave();
+        }
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 2: Country Selection
+    // Step 2: Country Selection (Dynamic)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
-        if (ctx.callbackQuery) {
-            const data = ctx.callbackQuery.data;
-            if (data === 'cancel') {
-                await ctx.answerCbQuery('Cancelled');
-                await ctx.replyWithMarkdown('❌ *Transaction cancelled.*\n\nUse /start to begin again.');
-                return ctx.scene.leave();
-            }
-            ctx.wizard.state.data.asset = data;
-            const assetName = data.split(':')[1].toUpperCase();
-            ctx.wizard.state.data.assetName = assetName;
-            await ctx.answerCbQuery(`Selected ${assetName}`);
+        if (!ctx.callbackQuery) return;
+        const data = ctx.callbackQuery.data;
+        if (data === 'cancel') {
+            await ctx.answerCbQuery('Cancelled');
+            await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
+            return ctx.scene.leave();
+        }
+
+        if (data.startsWith('asset:')) {
+            const assetId = data.replace('asset:', '');
+            const asset = ctx.wizard.state.assets.find((a: any) => a.id === assetId);
+            ctx.wizard.state.data.asset = asset;
+            await ctx.answerCbQuery(`Selected ${asset.code}`);
         } else {
             return;
         }
 
-        const msg = `
+        try {
+            await ctx.replyWithMarkdown('⏳ _Fetching supported countries..._');
+            const coverage = await switchService.getCoverage('ONRAMP');
+            ctx.wizard.state.coverage = coverage;
+
+            const msg = `
 🌍 *Select Country*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Buying: *${ctx.wizard.state.data.assetName}*
+Buying: *${ctx.wizard.state.data.asset.code}* (${ctx.wizard.state.data.asset.blockchain.name})
 
 Choose your country:
 `;
-        await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard([
-            [Markup.button.callback('🇳🇬 Nigeria', 'NG')],
-            [Markup.button.callback('🇬🇭 Ghana (Coming Soon)', 'soon')],
-            [Markup.button.callback('🇰🇪 Kenya (Coming Soon)', 'soon')],
-            [Markup.button.callback('❌ Cancel', 'cancel')]
-        ]));
-        return ctx.wizard.next();
+            const buttons = coverage.map((c: any) => {
+                const currency = Array.isArray(c.currency) ? c.currency[0] : c.currency;
+                return [Markup.button.callback(`${c.country === 'NG' ? '🇳🇬' : '🌍'} ${c.country}`, `country:${c.country}:${currency}`)];
+            });
+            buttons.push([Markup.button.callback('❌ Cancel', 'cancel')]);
+
+            await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard(buttons));
+            return ctx.wizard.next();
+        } catch (error: any) {
+            await ctx.replyWithMarkdown(`❌ *Error:* Failed to fetch countries. ${error.message}`);
+            return ctx.scene.leave();
+        }
     },
 
     // ═══════════════════════════════════════════════════════════
     // Step 3: Amount Input
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
-        if (ctx.callbackQuery) {
-            const data = ctx.callbackQuery.data;
-            if (data === 'cancel') {
-                await ctx.answerCbQuery('Cancelled');
-                await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
-                return ctx.scene.leave();
-            }
-            if (data === 'soon') {
-                await ctx.answerCbQuery('Coming soon! Only Nigeria is available now.');
-                return;
-            }
-            ctx.wizard.state.data.country = data;
-            ctx.wizard.state.data.currency = 'NGN';
-            ctx.wizard.state.data.currencySymbol = '₦';
-            await ctx.answerCbQuery('Nigeria selected');
+        if (!ctx.callbackQuery) return;
+        const data = ctx.callbackQuery.data;
+        if (data === 'cancel') {
+            await ctx.answerCbQuery('Cancelled');
+            await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
+            return ctx.scene.leave();
+        }
+
+        if (data.startsWith('country:')) {
+            const parts = data.split(':');
+            ctx.wizard.state.data.country = parts[1];
+            ctx.wizard.state.data.currency = parts[2];
+            await ctx.answerCbQuery(`Selected ${parts[1]}`);
         }
 
         const msg = `
@@ -99,11 +121,11 @@ Choose your country:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Buying: *${ctx.wizard.state.data.assetName}*
-Country: *🇳🇬 Nigeria*
-Currency: *NGN (₦)*
+Buying: *${ctx.wizard.state.data.asset.code}*
+Country: *${ctx.wizard.state.data.country}*
+Currency: *${ctx.wizard.state.data.currency}*
 
-Enter the amount in Naira you want to spend:
+Enter the amount in *${ctx.wizard.state.data.currency}* you want to spend:
 
 _Example: 50000_
 `;
@@ -117,16 +139,11 @@ _Example: 50000_
     async (ctx: any) => {
         const text = ctx.message?.text;
         if (!text || isNaN(parseFloat(text.replace(/,/g, '')))) {
-            await ctx.replyWithMarkdown('⚠️ Please enter a valid number.\n\n_Example: 50000_');
+            await ctx.replyWithMarkdown(`⚠️ Please enter a valid number.\n\n_Example: 50000_`);
             return;
         }
 
         const amount = parseFloat(text.replace(/,/g, ''));
-        if (amount < 1000) {
-            await ctx.replyWithMarkdown('⚠️ Minimum amount is ₦1,000');
-            return;
-        }
-
         ctx.wizard.state.data.amount = amount;
 
         try {
@@ -135,7 +152,7 @@ _Example: 50000_
             const quote = await switchService.getOnrampQuote(
                 amount,
                 ctx.wizard.state.data.country,
-                ctx.wizard.state.data.asset,
+                ctx.wizard.state.data.asset.id,
                 ctx.wizard.state.data.currency
             );
             ctx.wizard.state.quote = quote;
@@ -145,14 +162,12 @@ _Example: 50000_
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💵 *You Pay:* ₦${formatAmount(quote.source.amount)}
+💵 *You Pay:* ${formatAmount(quote.source.amount)} ${quote.source.currency}
 
-💰 *You Get:* ${formatAmount(quote.destination.amount)} ${ctx.wizard.state.data.assetName}
+💰 *You Get:* ${formatAmount(quote.destination.amount)} ${ctx.wizard.state.data.asset.code}
 
-📈 *Rate:* 1 ${ctx.wizard.state.data.assetName} = ₦${formatAmount(quote.rate)}
-
-💳 *Fee:* ₦${formatAmount(quote.fee.total)}
-
+📈 *Rate:* 1 ${ctx.wizard.state.data.asset.code} = ${formatAmount(quote.rate)} ${quote.source.currency}
+${quote.fee ? `\n💳 *Fee:* ${formatAmount(quote.fee.total)} ${quote.fee.currency}\n` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⏱ _Quote expires in 5 minutes_
@@ -176,31 +191,29 @@ Proceed with this transaction?
     // Step 5: Wallet Address
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
-        if (ctx.callbackQuery) {
-            const data = ctx.callbackQuery.data;
-            if (data === 'cancel') {
-                await ctx.answerCbQuery('Cancelled');
-                await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
-                return ctx.scene.leave();
-            }
-            if (data === 'refresh') {
-                await ctx.answerCbQuery('Please enter amount again');
-                ctx.wizard.selectStep(2);
-                await ctx.replyWithMarkdown('💵 Enter amount in Naira:');
-                return;
-            }
-            await ctx.answerCbQuery('Quote confirmed!');
+        if (!ctx.callbackQuery) return;
+        const data = ctx.callbackQuery.data;
+        if (data === 'cancel') {
+            await ctx.answerCbQuery('Cancelled');
+            await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
+            return ctx.scene.leave();
         }
+        if (data === 'refresh') {
+            await ctx.answerCbQuery('Please enter amount again');
+            ctx.wizard.selectStep(2);
+            await ctx.replyWithMarkdown(`💵 Enter amount in ${ctx.wizard.state.data.currency}:`);
+            return;
+        }
+        await ctx.answerCbQuery('Quote confirmed!');
 
-        const chain = ctx.wizard.state.data.asset.split(':')[0];
-        const chainName = chain === 'base' ? 'Base' : chain === 'ethereum' ? 'Ethereum' : chain === 'tron' ? 'Tron' : 'BSC';
+        const chainName = ctx.wizard.state.data.asset.blockchain.name;
 
         const msg = `
 📬 *Enter Wallet Address*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Your ${ctx.wizard.state.data.assetName} will be sent to this address.
+Your *${ctx.wizard.state.data.asset.code}* will be sent to this address.
 
 ⚠️ *Important:* Make sure this is a *${chainName}* wallet address!
 
@@ -228,7 +241,7 @@ Paste your wallet address below:
             const result = await switchService.initiateOnramp({
                 amount: ctx.wizard.state.data.amount,
                 country: ctx.wizard.state.data.country,
-                asset: ctx.wizard.state.data.asset,
+                asset: ctx.wizard.state.data.asset.id,
                 walletAddress: walletAddress,
                 currency: ctx.wizard.state.data.currency
             });
@@ -247,7 +260,7 @@ Paste your wallet address below:
 Bank: *${result.deposit.bank_name}*
 Account: \`${result.deposit.account_number}\`
 Name: *${result.deposit.account_name}*
-Amount: *₦${formatAmount(ctx.wizard.state.data.amount)}*
+Amount: *${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.currency}*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -258,9 +271,10 @@ Amount: *₦${formatAmount(ctx.wizard.state.data.amount)}*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-_Thank you for using Zappy! ⚡️_
+💡 _After making the transfer, click the button below to speed up confirmation._
 `;
             await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard([
+                [Markup.button.callback('💳 I have made the payment', `confirm_${result.reference}`)],
                 [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
             ]));
             return ctx.scene.leave();

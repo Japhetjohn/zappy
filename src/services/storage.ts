@@ -26,6 +26,17 @@ db.exec(`
     wallet_address TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    reference TEXT UNIQUE,
+    type TEXT,
+    asset TEXT,
+    amount REAL,
+    status TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 export const storageService = {
@@ -57,6 +68,24 @@ export const storageService = {
       beneficiary.walletAddress || null
     );
     return result.lastInsertRowid;
+  },
+
+  getTransactionHistory: (userId: number) => {
+    const stmt = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 5');
+    return stmt.all(userId) as any[];
+  },
+
+  addTransaction: (userId: number, reference: string, type: string, asset: string, amount: number) => {
+    const stmt = db.prepare(`
+      INSERT INTO transactions (user_id, reference, type, asset, amount, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    return stmt.run(userId, reference, type, asset, amount, 'PENDING');
+  },
+
+  updateTransactionStatus: (reference: string, status: string) => {
+    const stmt = db.prepare('UPDATE transactions SET status = ? WHERE reference = ?');
+    return stmt.run(status, reference);
   },
 
   // Basic user tracking (optional, but good for future)

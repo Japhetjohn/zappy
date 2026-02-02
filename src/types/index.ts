@@ -35,7 +35,7 @@ export interface Quote {
     rate: number;
     expiry: string;
     settlement: string;
-    fee: {
+    fee?: {
         total: number;
         platform: number;
         developer: number;
@@ -51,6 +51,46 @@ export interface Quote {
     };
 }
 
+export interface Coverage {
+    direction: 'ONRAMP' | 'OFFRAMP';
+    country: string;
+    currency: string;
+    banks: Institution[];
+}
+
+export interface FieldRequirement {
+    path: string;
+    regex: string;
+    example: string;
+    hint: string;
+    option: { name: string; code: string }[];
+}
+
+export interface TransactionResult {
+    id: string;
+    status: string;
+    type: string;
+    reference: string;
+    source: {
+        amount: number;
+        currency: string;
+    };
+    destination: {
+        amount: number;
+        currency: string;
+    };
+    deposit: {
+        bank_name?: string;
+        bank_code?: string;
+        account_name?: string;
+        account_number?: string;
+        address?: string;
+        asset?: string;
+        note?: string[];
+    };
+    created_at: string;
+}
+
 // Session data extension for Telegraf
 export interface SessionData {
     onramp?: {
@@ -59,6 +99,7 @@ export interface SessionData {
         amount?: number;
         quote?: Quote;
         walletAddress?: string;
+        result?: TransactionResult;
     };
     offramp?: {
         asset?: Asset;
@@ -66,5 +107,6 @@ export interface SessionData {
         amount?: number;
         quote?: Quote;
         beneficiary?: Beneficiary;
+        result?: TransactionResult;
     };
 }
