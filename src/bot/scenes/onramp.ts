@@ -11,7 +11,7 @@ const onrampWizard = new Scenes.WizardScene(
     async (ctx: any) => {
         ctx.wizard.state.data = {};
         try {
-            await ctx.answerCbQuery().catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
             const assets = await switchService.getAssets();
             ctx.wizard.state.assets = assets;
 
@@ -53,7 +53,7 @@ Select the asset you want to purchase:
         if (data.startsWith('symbol:')) {
             const symbol = data.replace('symbol:', '');
             ctx.wizard.state.data.symbol = symbol;
-            await ctx.answerCbQuery(`Selected ${symbol}`);
+            if (ctx.callbackQuery) await ctx.answerCbQuery(`Selected ${symbol}`);
         } else {
             return;
         }
@@ -95,7 +95,7 @@ Select the blockchain network:
             const assetId = data.replace('asset:', '');
             const asset = ctx.wizard.state.assets.find((a: any) => a.id === assetId);
             ctx.wizard.state.data.asset = asset;
-            await ctx.answerCbQuery(`Network: ${asset.blockchain.name}`);
+            if (ctx.callbackQuery) await ctx.answerCbQuery(`Network: ${asset.blockchain.name}`);
         } else {
             return;
         }
@@ -168,7 +168,7 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
     async (ctx: any) => {
         if (ctx.callbackQuery) {
             const data = ctx.callbackQuery.data;
-            await ctx.answerCbQuery().catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
 
             if (data === 'back') {
                 ctx.wizard.selectStep(2); // Back to Country selection
@@ -182,7 +182,7 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         await safeDelete(ctx);
 
         if (!text || isNaN(parseFloat(text.replace(/,/g, '')))) {
-            await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
             return;
         }
 
@@ -240,7 +240,7 @@ ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.cur
     async (ctx: any) => {
         if (!ctx.callbackQuery) return;
         const data = ctx.callbackQuery.data;
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
 
         if (data === 'back') {
             ctx.wizard.selectStep(3); // Back to amount entry
@@ -274,7 +274,7 @@ Paste your wallet address below:
     async (ctx: any) => {
         if (ctx.callbackQuery) {
             const data = ctx.callbackQuery.data;
-            await ctx.answerCbQuery().catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
 
             if (data === 'back') {
                 ctx.wizard.selectStep(4); // Back to Quote review buttons screen
@@ -288,7 +288,7 @@ Paste your wallet address below:
         if (walletAddress) await safeDelete(ctx);
 
         if (!walletAddress || walletAddress.length < 20) {
-            await ctx.answerCbQuery('⚠️ Invalid wallet address').catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery('⚠️ Invalid wallet address').catch(() => { });
             return;
         }
 

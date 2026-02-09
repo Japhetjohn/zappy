@@ -58,29 +58,29 @@ bot.command('start', async (ctx) => {
         storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown');
     }
     await safeDelete(ctx); // Clean command
-    return ctx.replyWithMarkdown(WELCOME_MSG, MAIN_KEYBOARD);
+    return ctx.replyWithHTML(WELCOME_MSG, MAIN_KEYBOARD);
 });
 
 // ═══════════════════════════════════════════════════════════
 // 📌 ACTION HANDLERS
 // ═══════════════════════════════════════════════════════════
 bot.action('action_menu', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     await safeEdit(ctx, WELCOME_MSG, MAIN_KEYBOARD);
 });
 
 bot.action('action_onramp', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.enter('onramp-wizard');
 });
 
 bot.action('action_offramp', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.enter('offramp-wizard');
 });
 
 bot.action('action_beneficiaries', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     if (!ctx.from) return;
 
     const beneficiaries = storageService.getBeneficiaries(ctx.from.id);
@@ -103,7 +103,7 @@ bot.action('action_beneficiaries', async (ctx) => {
 });
 
 bot.action('action_help', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     const msg = `
 ❓ <b>Help & Info</b>
 
@@ -122,7 +122,7 @@ Zappy makes crypto buy/sell simple:
 });
 
 bot.action('status', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     if (!ctx.from) return;
 
     const history = storageService.getTransactionHistory(ctx.from.id);
@@ -153,7 +153,7 @@ bot.action('status', async (ctx) => {
 // Dynamic status checker
 bot.action(/^status_(.+)$/, async (ctx) => {
     const reference = ctx.match[1];
-    await ctx.answerCbQuery('Updating...').catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Updating...').catch(() => { });
     try {
         const status = await switchService.getStatus(reference);
         const msg = formatStatusMessage(status);
@@ -166,7 +166,7 @@ bot.action(/^status_(.+)$/, async (ctx) => {
 
 bot.action(/^confirm_(.+)$/, async (ctx) => {
     const reference = ctx.match[1];
-    await ctx.answerCbQuery('Notifying system...').catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Notifying system...').catch(() => { });
     try {
         await switchService.confirmDeposit(reference);
         await safeEdit(ctx, `✅ <b>Payment Notified</b>\n\nReference: <code>${reference}</code>\n\nWe are now verifying your transfer.`, Markup.inlineKeyboard([
@@ -179,7 +179,7 @@ bot.action(/^confirm_(.+)$/, async (ctx) => {
 });
 
 bot.action('cancel', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.leave();
     await safeEdit(ctx, WELCOME_MSG, MAIN_KEYBOARD);
 });

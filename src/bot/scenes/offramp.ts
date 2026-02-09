@@ -13,7 +13,7 @@ const offrampWizard = new Scenes.WizardScene(
     async (ctx: any) => {
         ctx.wizard.state.data = { beneficiary: {} };
         try {
-            await ctx.answerCbQuery().catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
             const assets = await switchService.getAssets();
             ctx.wizard.state.assets = assets;
 
@@ -182,7 +182,8 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
         await safeDelete(ctx);
 
         if (!text || isNaN(parseFloat(text.replace(/,/g, '')))) {
-            await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
+            else await ctx.reply('⚠️ Please enter a valid number');
             return;
         }
 
