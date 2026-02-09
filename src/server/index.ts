@@ -56,10 +56,10 @@ ${message ? `💬 <b>Message:</b> ${message}` : ''}
         await bot.telegram.sendMessage(userId, notifyMsg, { parse_mode: 'HTML' });
         logger.info(`Notified user ${userId} about transaction ${reference} status ${status}`);
 
-        res.send({ success: true });
+        return res.send({ success: true });
     } catch (error: any) {
         logger.error(`Webhook handling failed: ${error.message}`);
-        res.status(500).send({ success: false, message: error.message });
+        return res.status(500).send({ success: false, message: error.message });
     }
 });
 
