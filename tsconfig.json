@@ -6,9 +6,6 @@
       "es2018",
       "esnext.asynciterable"
     ],
-    "types": [
-      "node"
-    ],
     "skipLibCheck": true,
     "sourceMap": true,
     "outDir": "./dist",
