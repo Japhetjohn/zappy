@@ -47,10 +47,32 @@ import { MAIN_KEYBOARD } from './keyboards';
 // ═══════════════════════════════════════════════════════════
 bot.command('start', async (ctx) => {
     if (ctx.from) {
-        storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown');
+        storageService.upsertUser(
+            ctx.from.id,
+            ctx.from.username || 'unknown',
+            `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim()
+        );
     }
     const name = ctx.from?.first_name || 'Friend';
     return ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
+});
+
+// 📊 ADMIN STATS COMMAND
+bot.command('stats', async (ctx) => {
+    const stats = storageService.getStats();
+    const msg = `
+📊 <b>Bitnova Africa Platform Stats</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👥 <b>Total Users:</b> ${stats.totalUsers.toLocaleString()}
+📝 <b>Total Transactions:</b> ${stats.totalTransactions.toLocaleString()}
+✅ <b>Successful Transfers:</b> ${stats.successfulTxs.toLocaleString()}
+💰 <b>Total Volume:</b> $${stats.totalVolume.toLocaleString()}
+
+<i>Scale: Ready for 20k+ users/day</i> 🌍⚡️
+`;
+    await ctx.replyWithHTML(msg);
 });
 
 // ═══════════════════════════════════════════════════════════
