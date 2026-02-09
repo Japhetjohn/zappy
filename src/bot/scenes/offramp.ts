@@ -248,7 +248,7 @@ ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.cur
         if (data === 'cancel') return ctx.scene.leave();
         if (data !== 'proceed') return; // Ensure we only proceed on 'proceed'
 
-        await ctx.answerCbQuery('Quote confirmed!');
+        if (ctx.callbackQuery) await ctx.answerCbQuery('Quote confirmed!');
 
         const saved = ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber) : [];
         ctx.wizard.state.savedBeneficiaries = saved;

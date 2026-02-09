@@ -250,8 +250,8 @@ export async function startBot() {
         logger.info('📡 Attempting to launch bot...');
         try {
             await bot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => { });
-            await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
             logger.info('✨ Zappy Global is LIVE!');
+            await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
         } catch (err: any) {
             logger.error(`❌ Launch failed: ${err.message}`);
             logger.info('🔄 Retrying in 10 seconds...');
