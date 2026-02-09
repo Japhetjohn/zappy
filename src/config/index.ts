@@ -9,4 +9,5 @@ export const config = {
     baseUrl: process.env.SWITCH_API_URL!,
     webhookSecret: process.env.SWITCH_WEBHOOK_SECRET!,
   },
+  port: process.env.PORT || 3000,
 };

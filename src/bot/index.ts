@@ -13,7 +13,7 @@ interface BotContext extends Scenes.WizardContext {
     session: Scenes.WizardSession & SessionData;
 }
 
-const bot = new Telegraf<BotContext>(config.botToken, {
+export const bot = new Telegraf<BotContext>(config.botToken, {
     handlerTimeout: 90_000,
     telegram: {
         agent: config.telegramProxy ? new HttpsProxyAgent(config.telegramProxy) : undefined,

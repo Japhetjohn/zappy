@@ -88,6 +88,11 @@ export const storageService = {
     return stmt.run(status, reference);
   },
 
+  getTransaction: (reference: string) => {
+    const stmt = db.prepare('SELECT * FROM transactions WHERE reference = ?');
+    return stmt.get(reference) as any;
+  },
+
   // Basic user tracking (optional, but good for future)
   upsertUser: (id: number, username: string) => {
     const stmt = db.prepare(`
