@@ -18,7 +18,16 @@ const onrampWizard = new Scenes.WizardScene(
             ctx.wizard.state.assets = assets;
 
             // Group by code (Symbol)
-            const symbols = [...new Set(assets.map(a => a.code))].sort();
+            const allSymbols = [...new Set(assets.map(a => a.code))];
+            const priorities = ['USDT', 'USDC', 'cNG']; // User requested priority
+            const symbols = allSymbols.sort((a, b) => {
+                const idxA = priorities.indexOf(a);
+                const idxB = priorities.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
 
             const msg = `
 💰 <b>Buy Crypto</b>
@@ -28,10 +37,7 @@ const onrampWizard = new Scenes.WizardScene(
 Select the asset you want to purchase:
 `;
             const buttons = symbols.map(s => Markup.button.callback(s, `symbol:${s}`));
-            const rows = [];
-            for (let i = 0; i < buttons.length; i += 2) {
-                rows.push(buttons.slice(i, i + 2));
-            }
+            const rows = formatButtons21(buttons);
             rows.push([Markup.button.callback('❌ Cancel', 'cancel')]);
 
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(rows));

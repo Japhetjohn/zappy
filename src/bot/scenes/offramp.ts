@@ -18,7 +18,16 @@ const offrampWizard = new Scenes.WizardScene(
             const assets = await switchService.getAssets();
             ctx.wizard.state.assets = assets;
 
-            const symbols = [...new Set(assets.map(a => a.code))].sort();
+            const allSymbols = [...new Set(assets.map(a => a.code))];
+            const priorities = ['USDT', 'USDC', 'cNG']; // User requested priority
+            const symbols = allSymbols.sort((a, b) => {
+                const idxA = priorities.indexOf(a);
+                const idxB = priorities.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
 
             const msg = `
 🪙 <b>Select Asset</b>
@@ -28,10 +37,7 @@ const offrampWizard = new Scenes.WizardScene(
 Choose the crypto asset you wish to sell:
 `;
             const buttons = symbols.map(s => Markup.button.callback(s, `symbol:${s}`));
-            const rows = [];
-            for (let i = 0; i < buttons.length; i += 2) {
-                rows.push(buttons.slice(i, i + 2));
-            }
+            const rows = formatButtons21(buttons);
             rows.push([Markup.button.callback('❌ Cancel', 'cancel')]);
 
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(rows));
@@ -116,11 +122,22 @@ Selling: <b>${ctx.wizard.state.data.symbol}</b> (${ctx.wizard.state.data.asset.b
 
 Choose your local currency:
 `;
-            const buttons = coverage.map((c: any) => {
+            const allowedCountries = ['NG', 'GH', 'KE'];
+            const flagMap: Record<string, string> = {
+                'NG': '🇳🇬',
+                'GH': '🇬🇭',
+                'KE': '🇰🇪'
+            };
+
+            const filteredCoverage = coverage.filter((c: any) => allowedCountries.includes(c.country));
+
+            const currencyButtons = filteredCoverage.map((c: any) => {
                 const currency = Array.isArray(c.currency) ? c.currency[0] : c.currency;
-                const flag = c.country === 'NG' ? '🇳🇬' : '🌍';
-                return [Markup.button.callback(`${flag} ${currency} (${c.country})`, `country:${c.country}:${currency}`)];
+                const flag = flagMap[c.country] || '🌍';
+                return Markup.button.callback(`${flag} ${currency} (${c.country})`, `country:${c.country}:${currency}`);
             });
+
+            const buttons = formatButtons21(currencyButtons);
             buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
 
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
