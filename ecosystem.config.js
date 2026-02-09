@@ -1,6 +1,6 @@
 module.exports = {
     apps: [{
-        name: 'zappy-bot',
+        name: 'bitnova-bot',
         script: 'dist/index.js',
         instances: 1,
         autorestart: true,

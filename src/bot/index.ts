@@ -29,7 +29,7 @@ bot.use(stage.middleware());
 const getWelcomeMsg = (name: string) => `
 Hello ${name} 👋
 
-My name is <b>Zappy</b>, your friendly crypto assistant! 🤖✨
+My name is <b>Bitnova Africa</b>, your friendly crypto assistant! 🤖✨
 
 I'm here to make buying and selling crypto super easy, fast, and secure for you. Whether you want to turn cash into crypto or crypto into cash, I've got you covered! 🚀
 
@@ -122,7 +122,7 @@ bot.action('action_rates', async (ctx) => {
 bot.action('action_help', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     const msg = `
-❓ <b>How does Zappy work?</b>
+❓ <b>How does Bitnova Africa work?</b>
 
 I'm designed to be the simplest way to move between cash and crypto! 🌍
 
@@ -280,7 +280,7 @@ bot.catch((err: any, ctx: Context) => {
 
 // Start Bot
 export async function startBot() {
-    logger.info('🚀 Zappy UX 2026 Engine Starting...');
+    logger.info('🚀 Bitnova Africa UX 2026 Engine Starting...');
 
     const tryConnect = async () => {
         try {
@@ -303,7 +303,7 @@ export async function startBot() {
         logger.info('📡 Attempting to launch bot...');
         try {
             await bot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => { });
-            logger.info('✨ Zappy Global is LIVE!');
+            logger.info('✨ Bitnova Africa is LIVE!');
             await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
         } catch (err: any) {
             logger.error(`❌ Launch failed: ${err.message}`);

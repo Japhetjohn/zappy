@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 
 /**
- * Shared utility functions for Zappy Bot
+ * Shared utility functions for Bitnova Africa
  */
 
 /**

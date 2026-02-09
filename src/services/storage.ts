@@ -3,7 +3,7 @@ import path from 'path';
 import { Beneficiary } from '../types';
 
 console.log('Initializing Storage Service...');
-const dbPath = path.resolve(__dirname, '../../zappy.db');
+const dbPath = path.resolve(__dirname, '../../bitnova.db');
 console.log(`Database path: ${dbPath}`);
 const db = new Database(dbPath);
 console.log('Database connected.');
