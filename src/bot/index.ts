@@ -57,7 +57,7 @@ bot.command('start', async (ctx) => {
     if (ctx.from) {
         storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown');
     }
-    await safeDelete(ctx); // Clean command
+    // await safeDelete(ctx); // Stop cleaning start command
     return ctx.replyWithHTML(WELCOME_MSG, MAIN_KEYBOARD);
 });
 
@@ -66,7 +66,7 @@ bot.command('start', async (ctx) => {
 // ═══════════════════════════════════════════════════════════
 bot.action('action_menu', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
-    await safeEdit(ctx, WELCOME_MSG, MAIN_KEYBOARD);
+    await ctx.replyWithHTML(WELCOME_MSG, MAIN_KEYBOARD);
 });
 
 bot.action('action_onramp', async (ctx) => {
@@ -97,7 +97,7 @@ bot.action('action_beneficiaries', async (ctx) => {
         });
     }
 
-    await safeEdit(ctx, msg, Markup.inlineKeyboard([
+    await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
     ]));
 });
@@ -116,7 +116,7 @@ Zappy makes crypto buy/sell simple:
 
 🤝 <b>Support:</b> Contact @ZappySupport
 `;
-    await safeEdit(ctx, msg, Markup.inlineKeyboard([
+    await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
     ]));
 });
@@ -127,24 +127,24 @@ bot.action('status', async (ctx) => {
 
     const history = storageService.getTransactionHistory(ctx.from.id);
     if (history.length === 0) {
-        await safeEdit(ctx, `📭 *No history found.*`, Markup.inlineKeyboard([
+        await ctx.replyWithHTML(`📭 *No history found.*`, Markup.inlineKeyboard([
             [Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
         return;
     }
 
     const last = history[history.length - 1];
-    await safeEdit(ctx, `⏳ <i>Checking status for</i> <code>${last.reference}</code>...`);
+    await ctx.replyWithHTML(`⏳ <i>Checking status for</i> <code>${last.reference}</code>...`);
 
     try {
         const status = await switchService.getStatus(last.reference);
         const msg = formatStatusMessage(status);
-        await safeEdit(ctx, msg, Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Refresh', `status_${last.reference}`)],
             [Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
     } catch (error: any) {
-        await safeEdit(ctx, `❌ *Error:* ${error.message}`, Markup.inlineKeyboard([
+        await ctx.replyWithHTML(`❌ *Error:* ${error.message}`, Markup.inlineKeyboard([
             [Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
     }

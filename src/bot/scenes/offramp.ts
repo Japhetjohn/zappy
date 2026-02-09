@@ -75,7 +75,7 @@ Select the blockchain network:
         ]);
         buttons.push([Markup.button.callback('⬅️ Back', 'back_to_symbol')]);
 
-        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     },
 
@@ -268,7 +268,7 @@ Type your <b>Bank Account Number</b> below:
         }
         buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
 
-        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     },
 
@@ -402,7 +402,7 @@ Choose your receiving bank:
                     throw new Error('Name not found');
                 }
             } catch (error: any) {
-                await safeEdit(ctx, `❌ <b>Verification Failed</b>`, Markup.inlineKeyboard([
+                await ctx.replyWithHTML(`❌ <b>Verification Failed</b>`, Markup.inlineKeyboard([
                     [Markup.button.callback('🏦 Change Bank', 'change_bank')],
                     [Markup.button.callback('💳 Change Account', 'change_account')],
                     [Markup.button.callback('❌ Cancel', 'cancel')]
