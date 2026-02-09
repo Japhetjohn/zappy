@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { bot } from '../bot';
 import { storageService } from '../services/storage';
 import { config } from '../config';
@@ -7,7 +7,7 @@ import logger from '../utils/logger';
 const app = express();
 app.use(express.json());
 
-app.post('/webhook', async (req, res) => {
+app.post('/webhook', async (req: Request, res: Response) => {
     const payload = req.body;
     logger.info(`Incoming Webhook: ${JSON.stringify(payload)}`);
 
