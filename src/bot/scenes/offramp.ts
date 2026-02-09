@@ -2,144 +2,187 @@ import { Scenes, Markup } from 'telegraf';
 import { switchService } from '../../services/switch';
 import { storageService } from '../../services/storage';
 import { Beneficiary } from '../../types';
-import { formatAmount } from '../../utils';
-
+import { formatAmount, safeEdit, safeDelete, paginationKeyboard } from '../../utils';
 
 const offrampWizard = new Scenes.WizardScene(
     'offramp-wizard',
 
     // ═══════════════════════════════════════════════════════════
-    // Step 1: Asset Selection (Dynamic)
+    // Step 1: Symbol Selection (index 0)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
-        ctx.wizard.state.data = {};
+        ctx.wizard.state.data = { beneficiary: {} };
         try {
-            await ctx.replyWithMarkdown('⏳ _Fetching available assets..._');
+            await ctx.answerCbQuery().catch(() => { });
             const assets = await switchService.getAssets();
             ctx.wizard.state.assets = assets;
 
-            const grouped: Record<string, any[]> = {};
-            assets.forEach(a => {
-                const chainName = a.blockchain.name;
-                if (!grouped[chainName]) grouped[chainName] = [];
-                grouped[chainName].push(a);
-            });
+            const symbols = [...new Set(assets.map(a => a.code))].sort();
 
             const msg = `
-💸 *Sell Crypto*
+🪙 <b>Select Asset</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Select the asset you want to sell:
+Choose the crypto asset you wish to sell:
 `;
-            const buttons = [];
-            for (const [chain, chainAssets] of Object.entries(grouped)) {
-                const row = chainAssets.map(a => Markup.button.callback(`${a.code} (${chain})`, `asset:${a.id}`));
-                for (let i = 0; i < row.length; i += 2) {
-                    buttons.push(row.slice(i, i + 2));
-                }
+            const buttons = symbols.map(s => Markup.button.callback(s, `symbol:${s}`));
+            const rows = [];
+            for (let i = 0; i < buttons.length; i += 2) {
+                rows.push(buttons.slice(i, i + 2));
             }
-            buttons.push([Markup.button.callback('❌ Cancel', 'cancel')]);
+            rows.push([Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard(buttons));
+            await safeEdit(ctx, msg, Markup.inlineKeyboard(rows));
             return ctx.wizard.next();
         } catch (error: any) {
-            await ctx.replyWithMarkdown(`❌ *Error:* Failed to fetch assets. ${error.message}`);
+            await safeEdit(ctx, `❌ <b>Error:</b> ${error.message}`, Markup.inlineKeyboard([
+                [Markup.button.callback('🏠 Back to Menu', 'cancel')]
+            ]));
             return ctx.scene.leave();
         }
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 2: Country Selection (Dynamic)
+    // Step 2: Network Selection (index 1)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         if (!ctx.callbackQuery) return;
         const data = ctx.callbackQuery.data;
-        if (data === 'cancel') {
-            await ctx.answerCbQuery('Cancelled');
-            await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
-            return ctx.scene.leave();
+        await ctx.answerCbQuery().catch(() => { });
+        if (data === 'cancel') return ctx.scene.leave();
+
+        if (data.startsWith('symbol:')) {
+            const symbol = data.replace('symbol:', '');
+            ctx.wizard.state.data.symbol = symbol;
+        } else {
+            return;
         }
+
+        const filteredAssets = ctx.wizard.state.assets.filter((a: any) => a.code === ctx.wizard.state.data.symbol);
+
+        const msg = `
+🌐 <b>Select Network</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Asset: <b>${ctx.wizard.state.data.symbol}</b>
+
+Select the blockchain network:
+`;
+        const buttons = filteredAssets.map((a: any) => [
+            Markup.button.callback(`🔹 ${a.blockchain.name}`, `asset:${a.id}`)
+        ]);
+        buttons.push([Markup.button.callback('⬅️ Back', 'back_to_symbol')]);
+
+        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
+        return ctx.wizard.next();
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // Step 3: Country Selection (index 2)
+    // ═══════════════════════════════════════════════════════════
+    async (ctx: any) => {
+        if (!ctx.callbackQuery) return;
+        const data = ctx.callbackQuery.data;
+        await ctx.answerCbQuery().catch(() => { });
+
+        if (data === 'back_to_symbol') {
+            ctx.wizard.selectStep(0);
+            return ctx.wizard.steps[0](ctx);
+        }
+        if (data === 'cancel') return ctx.scene.leave();
 
         if (data.startsWith('asset:')) {
             const assetId = data.replace('asset:', '');
             const asset = ctx.wizard.state.assets.find((a: any) => a.id === assetId);
             ctx.wizard.state.data.asset = asset;
-            await ctx.answerCbQuery(`Selected ${asset.code}`);
         } else {
             return;
         }
 
         try {
-            await ctx.replyWithMarkdown('⏳ _Fetching supported countries..._');
             const coverage = await switchService.getCoverage('OFFRAMP');
             ctx.wizard.state.coverage = coverage;
 
             const msg = `
-🌍 *Select Country*
+🌍 <b>Select Currency</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Selling: *${ctx.wizard.state.data.asset.code}* (${ctx.wizard.state.data.asset.blockchain.name})
+Selling: <b>${ctx.wizard.state.data.symbol}</b> (${ctx.wizard.state.data.asset.blockchain.name})
 
-Choose your country:
+Choose your local currency:
 `;
             const buttons = coverage.map((c: any) => {
                 const currency = Array.isArray(c.currency) ? c.currency[0] : c.currency;
-                return [Markup.button.callback(`${c.country === 'NG' ? '🇳🇬' : '🌍'} ${c.country}`, `country:${c.country}:${currency}`)];
+                const flag = c.country === 'NG' ? '🇳🇬' : '🌍';
+                return [Markup.button.callback(`${flag} ${currency} (${c.country})`, `country:${c.country}:${currency}`)];
             });
-            buttons.push([Markup.button.callback('❌ Cancel', 'cancel')]);
+            buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard(buttons));
+            await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
             return ctx.wizard.next();
         } catch (error: any) {
-            await ctx.replyWithMarkdown(`❌ *Error:* Failed to fetch countries. ${error.message}`);
+            await safeEdit(ctx, `❌ <b>Error:</b> ${error.message}`);
             return ctx.scene.leave();
         }
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 3: Amount Input
+    // Step 4: Amount Input (index 3)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         if (!ctx.callbackQuery) return;
         const data = ctx.callbackQuery.data;
-        if (data === 'cancel') {
-            await ctx.answerCbQuery('Cancelled');
-            await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
-            return ctx.scene.leave();
+        await ctx.answerCbQuery().catch(() => { });
+
+        if (data === 'back') {
+            ctx.wizard.selectStep(1); // Back to Network selection
+            return ctx.wizard.steps[1](ctx);
         }
+        if (data === 'cancel') return ctx.scene.leave();
 
         if (data.startsWith('country:')) {
             const parts = data.split(':');
             ctx.wizard.state.data.country = parts[1];
             ctx.wizard.state.data.currency = parts[2];
-            await ctx.answerCbQuery(`Selected ${parts[1]}`);
         }
 
         const msg = `
-💰 *Enter Amount*
+💵 <b>Enter Amount</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Selling: *${ctx.wizard.state.data.asset.code}*
-Receiving: *${ctx.wizard.state.data.currency}*
+How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
-Enter the amount of *${ctx.wizard.state.data.asset.code}* you want to sell:
-
-_Example: 100_
+<i>Example: 100</i>
 `;
-        await ctx.replyWithMarkdown(msg);
+        await safeEdit(ctx, msg, Markup.inlineKeyboard([
+            [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
+        ]));
         return ctx.wizard.next();
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 4: Show Quote
+    // Step 5: Show Quote (index 4)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
+        if (ctx.callbackQuery) {
+            const data = ctx.callbackQuery.data;
+            if (data === 'back') {
+                ctx.wizard.selectStep(2); // Back to Country selection
+                return ctx.wizard.steps[2](ctx);
+            }
+            if (data === 'cancel') return ctx.scene.leave();
+            return;
+        }
+
         const text = ctx.message?.text;
+        await safeDelete(ctx);
+
         if (!text || isNaN(parseFloat(text.replace(/,/g, '')))) {
-            await ctx.replyWithMarkdown('⚠️ Please enter a valid number.\n\n_Example: 100_');
+            await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
             return;
         }
 
@@ -147,8 +190,6 @@ _Example: 100_
         ctx.wizard.state.data.amount = amount;
 
         try {
-            await ctx.replyWithMarkdown('⏳ _Fetching best rates..._');
-
             const quote = await switchService.getOfframpQuote(
                 amount,
                 ctx.wizard.state.data.country,
@@ -158,251 +199,247 @@ _Example: 100_
             ctx.wizard.state.quote = quote;
 
             const msg = `
-📊 *Quote Details*
+📊 <b>Review Quote</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 *You Sell:* ${formatAmount(quote.source.amount)} ${ctx.wizard.state.data.asset.code}
+💰 <b>You Sell:</b> ${formatAmount(quote.source.amount)} ${ctx.wizard.state.data.symbol}
+💵 <b>You Get:</b> ${formatAmount(quote.destination.amount)} ${quote.destination.currency}
 
-💵 *You Get:* ${formatAmount(quote.destination.amount)} ${quote.destination.currency}
+📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${quote.destination.currency}
+${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
 
-📈 *Rate:* 1 ${ctx.wizard.state.data.asset.code} = ${formatAmount(quote.rate)} ${quote.destination.currency}
-${quote.fee ? `\n💳 *Fee:* ${formatAmount(quote.fee.total)} ${quote.fee.currency}\n` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⏱ _Quote expires in 5 minutes_
-
-Proceed with this transaction?
+⏱ <i>Expires in 5 minutes</i>
 `;
-            await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard([
+            await safeEdit(ctx, msg, Markup.inlineKeyboard([
                 [Markup.button.callback('✅ Confirm & Continue', 'proceed')],
-                [Markup.button.callback('❌ Cancel', 'cancel')]
+                [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
             ]));
             return ctx.wizard.next();
 
         } catch (error: any) {
-            await ctx.replyWithMarkdown(`❌ *Error:* ${error.message}`);
-            return ctx.scene.leave();
+            let errorMsg = error.message;
+            if (errorMsg.includes('Maximum amount')) {
+                errorMsg = `⚠️ <b>Limit Exceeded</b>\n\nThe maximum amount allowed per transaction is <b>10,000 ${ctx.wizard.state.data.symbol}</b>. Please enter a smaller amount.`;
+            } else {
+                errorMsg = `❌ <b>Error:</b> ${errorMsg}`;
+            }
+
+            await safeEdit(ctx, errorMsg, Markup.inlineKeyboard([
+                [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
+            ]));
+            return;
         }
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 5: Beneficiary Selection or Dynamic Entry
-    // ═══════════════════════════════════════════════════════════
-    // ═══════════════════════════════════════════════════════════
-    // Step 5: Account Number Entry (or Select Saved)
+    // Step 6: Account Number Entry (index 5)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         if (!ctx.callbackQuery) return;
         const data = ctx.callbackQuery.data;
-        if (data === 'cancel') {
-            await ctx.answerCbQuery('Cancelled');
-            await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
-            return ctx.scene.leave();
+        if (data === 'back') {
+            ctx.wizard.selectStep(3); // Back to amount entry
+            return ctx.wizard.steps[3](ctx);
         }
+        if (data === 'cancel') return ctx.scene.leave();
+        if (data !== 'proceed') return; // Ensure we only proceed on 'proceed'
+
         await ctx.answerCbQuery('Quote confirmed!');
 
-        try {
-            await ctx.replyWithMarkdown('⏳ _Preparing withdrawal..._');
+        const saved = ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber) : [];
+        ctx.wizard.state.savedBeneficiaries = saved;
 
-            // Get saved beneficiaries
-            const saved = ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber) : [];
-            ctx.wizard.state.savedBeneficiaries = saved;
-            ctx.wizard.state.data.beneficiary = {};
-
-            let msg = `
-🏦 *Withdrawal Details*
+        const msg = `
+💳 <b>Withdrawal Account</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Enter your *Bank Account Number* below:
+Type your <b>Bank Account Number</b> below:
 
-_Example: 0123456789_
+<i>Example: 0123456789</i>
 `;
-            let buttons: any[] = [];
-            if (saved.length > 0) {
-                msg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n*Or select a saved account:*`;
-                buttons = saved.slice(0, 5).map(b => [Markup.button.callback(`👤 ${b.holderName} (${b.bankName})`, `use_saved:${b.id}`)]);
-            }
-            buttons.push([Markup.button.callback('❌ Cancel', 'cancel')]);
-
-            await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard(buttons));
-            return ctx.wizard.next();
-        } catch (error: any) {
-            await ctx.replyWithMarkdown(`❌ *Error:* ${error.message}`);
-            return ctx.scene.leave();
+        let buttons: any[] = [];
+        if (saved.length > 0) {
+            buttons = saved.slice(0, 3).map(b => [Markup.button.callback(`👤 ${b.holderName} (${b.bankName})`, `use_saved:${b.id}`)]);
         }
+        buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
+
+        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
+        return ctx.wizard.next();
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 6: Bank Selection (Fetches Banks)
+    // Step 7: Bank Selection (index 6)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
-        let accountNumber = '';
-
         if (ctx.callbackQuery) {
             const data = ctx.callbackQuery.data;
-            if (data === 'cancel') {
-                await ctx.answerCbQuery('Cancelled');
-                await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
-                return ctx.scene.leave();
+            await ctx.answerCbQuery().catch(() => { });
+
+            if (data === 'cancel') return ctx.scene.leave();
+            if (data === 'back') {
+                ctx.wizard.selectStep(4); // Back to Quote review button screen
+                return ctx.wizard.steps[4](ctx);
             }
+
             if (data.startsWith('use_saved:')) {
                 const id = parseInt(data.replace('use_saved:', ''));
                 const selected = ctx.wizard.state.savedBeneficiaries.find((b: any) => b.id === id);
                 if (selected) {
                     ctx.wizard.state.data.beneficiary = { ...selected };
-                    // Skip to verification review (skip to step 7 logic)
-                    ctx.wizard.selectStep(7);
+                    ctx.wizard.selectStep(7); // Jump to Verification & Review
                     return ctx.wizard.steps[7](ctx);
                 }
             }
-            return; // Ignore other callbacks
-        }
 
-        accountNumber = ctx.message?.text?.trim();
-        if (!accountNumber || accountNumber.length < 5) {
-            await ctx.replyWithMarkdown('⚠️ Please enter a valid account number.');
-            return;
-        }
-        ctx.wizard.state.data.beneficiary.accountNumber = accountNumber;
-
-        try {
-            await ctx.replyWithMarkdown('⏳ _Fetching supported banks..._');
-            // We use getInstitutions or requirements to show a list of banks
-            const banks = await switchService.getInstitutions(ctx.wizard.state.data.country);
-            ctx.wizard.state.banks = banks;
-
-            const msg = `
-🏦 *Select Your Bank*
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Account: \`${accountNumber}\`
-
-Choose your bank from the list below:
-`;
-            const buttons = [];
-            for (let i = 0; i < banks.length; i += 2) {
-                const row = [Markup.button.callback(banks[i].name, `bank:${banks[i].code}`)];
-                if (banks[i + 1]) row.push(Markup.button.callback(banks[i + 1].name, `bank:${banks[i + 1].code}`));
-                buttons.push(row);
-            }
-            buttons.push([Markup.button.callback('❌ Cancel', 'cancel')]);
-
-            await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard(buttons.slice(0, 50)));
-            return ctx.wizard.next();
-        } catch (e) {
-            await ctx.replyWithMarkdown('❌ Error fetching banks. Please try again or type /cancel');
-        }
-    },
-
-    // ═══════════════════════════════════════════════════════════
-    // Step 7: Verification (Perform Individual Lookup)
-    // ═══════════════════════════════════════════════════════════
-    async (ctx: any) => {
-        if (ctx.callbackQuery) {
-            const data = ctx.callbackQuery.data;
-            if (data === 'cancel') {
-                await ctx.answerCbQuery('Cancelled');
-                await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
-                return ctx.scene.leave();
-            }
+            // Handle Bank Selection Callback (Lands in this step)
             if (data.startsWith('bank:')) {
                 const bankCode = data.replace('bank:', '');
                 const bank = ctx.wizard.state.banks.find((b: any) => b.code === bankCode);
                 ctx.wizard.state.data.beneficiary.bankCode = bankCode;
                 ctx.wizard.state.data.beneficiary.bankName = bank.name;
-                await ctx.answerCbQuery(`Selected ${bank.name}`);
+
+                // Advance to Review
+                ctx.wizard.next();
+                return ctx.wizard.steps[ctx.wizard.cursor](ctx);
+            }
+
+            // Handle Pagination Callback (Lands in this step)
+            if (data.startsWith('page:')) {
+                const page = parseInt(data.replace('page:', ''));
+                ctx.wizard.state.bankPage = page;
+                const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
+                await safeEdit(ctx, ctx.wizard.state.bankMsg, kb);
+                return;
+            }
+
+            if (data === 'back_to_acc') {
+                ctx.wizard.selectStep(5); // Re-show Account Number Entry
+                return ctx.wizard.steps[5](ctx);
             }
         }
 
-        // Perform Mandatory Automated Lookup
+        const accountNumber = ctx.message?.text?.trim();
+        if (accountNumber) {
+            await safeDelete(ctx);
+            ctx.wizard.state.data.beneficiary.accountNumber = accountNumber;
+        }
+
+        try {
+            if (!ctx.wizard.state.banks) {
+                const banks = await switchService.getInstitutions(ctx.wizard.state.data.country);
+                ctx.wizard.state.banks = banks;
+            }
+
+            const page = ctx.wizard.state.bankPage || 0;
+            const msg = `
+🏦 <b>Select Bank</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Account: <code>${ctx.wizard.state.data.beneficiary.accountNumber}</code>
+
+Choose your receiving bank:
+`;
+            ctx.wizard.state.bankMsg = msg;
+            const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
+            await safeEdit(ctx, msg, kb);
+            // Stay in this step to handle callbacks
+            return;
+        } catch (e) {
+            await safeEdit(ctx, '❌ Failed to load banks. Type /cancel to restart.');
+        }
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // Step 8: Verification & Review (index 7)
+    // ═══════════════════════════════════════════════════════════
+    async (ctx: any) => {
+        if (ctx.callbackQuery) {
+            const data = ctx.callbackQuery.data;
+            await ctx.answerCbQuery().catch(() => { });
+
+            if (data === 'cancel') return ctx.scene.leave();
+
+            if (data === 'change_bank') {
+                ctx.wizard.selectStep(6);
+                return ctx.wizard.steps[6](ctx);
+            }
+            if (data === 'change_account') {
+                ctx.wizard.selectStep(5);
+                return ctx.wizard.steps[5](ctx);
+            }
+            if (data === 'initiate') {
+                ctx.wizard.next();
+                return ctx.wizard.steps[ctx.wizard.cursor](ctx);
+            }
+        }
+
         const b = ctx.wizard.state.data.beneficiary;
         if (!b.holderName && b.bankCode && b.accountNumber) {
             try {
-                await ctx.replyWithMarkdown('⏳ _Automatically verifying account holder name..._');
-                const result = await switchService.lookupInstitution(
-                    ctx.wizard.state.data.country,
-                    b.bankCode,
-                    b.accountNumber
-                );
+                await safeEdit(ctx, '⏳ <i>Verifying account...</i>');
+                const result = await switchService.lookupInstitution(ctx.wizard.state.data.country, b.bankCode, b.accountNumber);
 
-                // Switch API might return fields in the 'data' or the 'result' directly (though switchService handles the data layer)
-                // Let's be EXTREMELY exhaustive
-                const possibleFields = ['account_name', 'accountName', 'name', 'holder_name', 'beneficiary_name', 'full_name'];
+                const possibleFields = ['account_name', 'accountName', 'name', 'holder_name', 'beneficiary_name'];
                 let name = '';
-
-                // Check flat
                 for (const field of possibleFields) {
-                    if (result[field]) {
-                        name = result[field];
-                        break;
-                    }
+                    if (result[field]) { name = result[field]; break; }
                 }
-
-                // Check one level deep just in case
                 if (!name && result.beneficiary) {
                     for (const field of possibleFields) {
-                        if (result.beneficiary[field]) {
-                            name = result.beneficiary[field];
-                            break;
-                        }
+                        if (result.beneficiary[field]) { name = result.beneficiary[field]; break; }
                     }
                 }
 
                 if (name) {
                     ctx.wizard.state.data.beneficiary.holderName = name;
-                    await ctx.replyWithMarkdown(`✅ *Account Verified:* ${name}`);
                 } else {
-                    console.error('Lookup succeeded but no name found in:', JSON.stringify(result));
-                    throw new Error('Could not parse account name from response');
+                    throw new Error('Name not found');
                 }
             } catch (error: any) {
-                console.error('Lookup failed:', error.message || error);
-                await ctx.replyWithMarkdown('❌ *Verification Failed:* We could not automatically verify the account holder\'s name. Please ensure the account number and bank are correct.');
-                // Go back to bank selection (Step 6) to allow correction
-                ctx.wizard.selectStep(5);
-                return ctx.wizard.steps[5](ctx);
+                await safeEdit(ctx, `❌ <b>Verification Failed</b>`, Markup.inlineKeyboard([
+                    [Markup.button.callback('🏦 Change Bank', 'change_bank')],
+                    [Markup.button.callback('💳 Change Account', 'change_account')],
+                    [Markup.button.callback('❌ Cancel', 'cancel')]
+                ]));
+                return;
             }
         }
 
-        const msg = `
-🏁 *Review Your Transfer*
+        if (b.holderName) {
+            const msg = `
+🏁 <b>Review Transfer</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-👤 *Account Holder:* ${ctx.wizard.state.data.beneficiary.holderName}
-🏦 *Bank:* ${ctx.wizard.state.data.beneficiary.bankName}
-💳 *Account:* \`${ctx.wizard.state.data.beneficiary.accountNumber}\`
-💸 *Amount to Sell:* ${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.asset.code}
-💵 *You Will Receive:* ${formatAmount(ctx.wizard.state.quote.destination.amount)} ${ctx.wizard.state.data.currency}
+👤 <b>Holder:</b> ${b.holderName}
+🏦 <b>Bank:</b> ${b.bankName}
+💳 <b>Account:</b> <code>${b.accountNumber}</code>
+
+💸 <b>Selling:</b> ${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.symbol}
+💵 <b>Receiving:</b> ${formatAmount(ctx.wizard.state.quote.destination.amount)} ${ctx.wizard.state.data.currency}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Would you like to proceed?
+*Proceed with this transaction?*
 `;
-        await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard([
-            [Markup.button.callback('🚀 Yes, Create Wallet', 'initiate')],
-            [Markup.button.callback('❌ Cancel', 'cancel')]
-        ]));
-        return ctx.wizard.next();
+            await safeEdit(ctx, msg, Markup.inlineKeyboard([
+                [Markup.button.callback('🚀 Yes, Create Order', 'initiate')],
+                [Markup.button.callback('❌ Cancel', 'cancel')]
+            ]));
+        }
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 8: Initiation & Wallet Creation
+    // Step 9: Order Creation (index 8)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
-        if (!ctx.callbackQuery) return;
-        const data = ctx.callbackQuery.data;
-        if (data === 'cancel') {
-            await ctx.answerCbQuery('Cancelled');
-            await ctx.replyWithMarkdown('❌ *Transaction cancelled.*');
-            return ctx.scene.leave();
-        }
-
         try {
-            await ctx.replyWithMarkdown('⏳ _Creating secure deposit wallet..._');
+            await safeEdit(ctx, '⏳ <i>Creating secure wallet...</i>');
 
             const result = await switchService.initiateOfframp({
                 amount: ctx.wizard.state.data.amount,
@@ -416,56 +453,37 @@ Would you like to proceed?
                 }
             });
 
-            // Save beneficiary for future use if it's new
-            if (!ctx.wizard.state.data.beneficiary.id && ctx.from) {
-                storageService.addBeneficiary({
-                    userId: ctx.from.id,
-                    holderName: ctx.wizard.state.data.beneficiary.holderName,
-                    bankCode: ctx.wizard.state.data.beneficiary.bankCode,
-                    accountNumber: ctx.wizard.state.data.beneficiary.accountNumber,
-                    bankName: ctx.wizard.state.data.beneficiary.bankName
-                });
-            }
-
-            const chainName = ctx.wizard.state.data.asset.blockchain.name;
-
             const msg = `
-🚀 *Wallet Created Successfully!*
+✅ <b>Order Created!</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📋 *Reference:* \`${result.reference}\`
+📋 <b>Reference:</b> <code>${result.reference}</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📤 *Send EXACTLY:*
-*${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.asset.code}*
+📤 <b>Send EXACTLY:</b>
+<b>${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.symbol}</b>
 
-📍 *Recipient Address:*
-\`${result.deposit.address}\`
+📍 <b>Recipient Address:</b>
+<code>${result.deposit.address}</code>
 
-Network: *${chainName}*
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💵 *You Will Receive:*
-${formatAmount(ctx.wizard.state.quote.destination.amount)} ${ctx.wizard.state.data.currency}
+Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⚠️ *Important:* 
-Send funds only via the *${chainName}* network. Using any other network will result in permanent loss of funds.
-
-💡 _After sending, you can monitor the status below:_
+💡 <i>Your payment will be processed automatically after confirmation.</i>
 `;
-            await ctx.replyWithMarkdown(msg, Markup.inlineKeyboard([
-                [Markup.button.callback('🔍 Track Status', `status_${result.reference}`)],
-                [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+            await safeEdit(ctx, msg, Markup.inlineKeyboard([
+                [Markup.button.callback('📊 Track Status', `status_${result.reference}`)],
+                [Markup.button.callback('🏠 Main Menu', 'cancel')]
             ]));
             return ctx.scene.leave();
 
         } catch (error: any) {
-            await ctx.replyWithMarkdown(`❌ *Error:* ${error.message}`);
+            await safeEdit(ctx, `❌ <b>Order Failed:</b> ${error.message}`, Markup.inlineKeyboard([
+                [Markup.button.callback('🏠 Back to Menu', 'cancel')]
+            ]));
             return ctx.scene.leave();
         }
     }

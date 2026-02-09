@@ -76,7 +76,7 @@ export class SwitchService {
                 country,
                 beneficiary: {
                     bank_code: bankCode,
-                    account_number: accountNumber,
+                    account_number: accountNumber.trim(),
                 }
             };
             console.log('Sending Switch Lookup Payload:', JSON.stringify(payload));
@@ -89,8 +89,10 @@ export class SwitchService {
             }
             throw new Error(response.data.message || 'Failed to lookup account');
         } catch (error: any) {
+            const apiMessage = error.response?.data?.message || error.response?.data?.error;
+            const finalMessage = apiMessage ? `${apiMessage}` : error.message;
             console.error('Error looking up institution:', error.response?.data || error.message);
-            throw error;
+            throw new Error(finalMessage);
         }
     }
 
