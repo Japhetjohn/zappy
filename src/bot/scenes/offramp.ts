@@ -2,7 +2,7 @@ import { Scenes, Markup } from 'telegraf';
 import { switchService } from '../../services/switch';
 import { storageService } from '../../services/storage';
 import { Beneficiary } from '../../types';
-import { formatAmount, safeEdit, safeDelete, paginationKeyboard } from '../../utils';
+import { formatAmount, safeEdit, safeDelete, paginationKeyboard, formatButtons21 } from '../../utils';
 import { MAIN_KEYBOARD } from '../keyboards';
 
 const offrampWizard = new Scenes.WizardScene(
@@ -71,9 +71,10 @@ Asset: <b>${ctx.wizard.state.data.symbol}</b>
 
 Select the blockchain network:
 `;
-        const buttons = filteredAssets.map((a: any) => [
+        const assetButtons = filteredAssets.map((a: any) =>
             Markup.button.callback(`🔹 ${a.blockchain.name}`, `asset:${a.id}`)
-        ]);
+        );
+        const buttons = formatButtons21(assetButtons);
         buttons.push([Markup.button.callback('⬅️ Back', 'back_to_symbol')]);
 
         await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));

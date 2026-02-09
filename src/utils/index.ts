@@ -87,4 +87,21 @@ export const paginationKeyboard = (
 
     return Markup.inlineKeyboard(buttons);
 };
+/**
+ * Formats buttons in a 2-1-2-1 pattern
+ */
+export const formatButtons21 = (buttons: any[]) => {
+    const rows = [];
+    let i = 0;
+    while (i < buttons.length) {
+        // Pattern: 2, 1, 2, 1...
+        // Row 0 (length 0): take 2
+        // Row 1 (length 1): take 1
+        const take = (rows.length % 2 === 0) ? 2 : 1;
+        rows.push(buttons.slice(i, i + take));
+        i += take;
+    }
+    return rows;
+};
+
 export * from './explorer';
