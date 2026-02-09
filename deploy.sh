@@ -35,6 +35,7 @@ SSHPASS="$VPS_PASS" sshpass -e ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_I
     unzip -o $ZIP_FILE
     rm $ZIP_FILE
     npm install --omit=dev --no-audit --no-fund
+    npm run build
     mkdir -p logs
     # Safeguard: Ensure no orphaned processes are clinging to the bot token
     echo "🧹 Cleaning up potential conflicts..."
