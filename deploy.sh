@@ -9,18 +9,18 @@ ZIP_FILE="deploy.zip"
 
 echo "🚀 Starting deployment to $VPS_IP..."
 
-# 1. Build locally
-echo "📦 Building project..."
-npm run build
+# 1. Build locally (SKIPPED - will build on VPS)
+# echo "📦 Building project..."
+# npm run build
 
-if [ $? -ne 0 ]; then
-    echo "❌ Build failed! Deployment aborted."
-    exit 1
-fi
+# if [ $? -ne 0 ]; then
+#     echo "❌ Build failed! Deployment aborted."
+#     exit 1
+# fi
 
-# 2. Package files
+# 2. Package files (including source for remote build)
 echo "📦 Packaging files..."
-zip -r $ZIP_FILE dist package.json ecosystem.config.js .env zappy.db -x "*.ts"
+zip -r $ZIP_FILE src package.json tsconfig.json ecosystem.config.js .env zappy.db -x "*.map"
 
 # 3. Transfer via scp
 echo "📤 Transferring package to VPS..."
