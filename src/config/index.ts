@@ -10,5 +10,6 @@ export const config = {
     webhookSecret: process.env.SWITCH_WEBHOOK_SECRET!,
   },
   developerFee: Number(process.env.DEVELOPER_FEE) || 1,
+  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/zappy',
   port: process.env.PORT || 3000,
 };
