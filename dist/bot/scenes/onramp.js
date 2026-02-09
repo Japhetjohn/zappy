@@ -7,7 +7,8 @@ const utils_1 = require("../../utils");
 const onrampWizard = new telegraf_1.Scenes.WizardScene('onramp-wizard', async (ctx) => {
     ctx.wizard.state.data = {};
     try {
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery().catch(() => { });
         const assets = await switch_1.switchService.getAssets();
         ctx.wizard.state.assets = assets;
         const symbols = [...new Set(assets.map(a => a.code))].sort();
@@ -42,7 +43,8 @@ Select the asset you want to purchase:
     if (data.startsWith('symbol:')) {
         const symbol = data.replace('symbol:', '');
         ctx.wizard.state.data.symbol = symbol;
-        await ctx.answerCbQuery(`Selected ${symbol}`);
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery(`Selected ${symbol}`);
     }
     else {
         return;
@@ -77,7 +79,8 @@ Select the blockchain network:
         const assetId = data.replace('asset:', '');
         const asset = ctx.wizard.state.assets.find((a) => a.id === assetId);
         ctx.wizard.state.data.asset = asset;
-        await ctx.answerCbQuery(`Network: ${asset.blockchain.name}`);
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery(`Network: ${asset.blockchain.name}`);
     }
     else {
         return;
@@ -139,7 +142,8 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
     var _a;
     if (ctx.callbackQuery) {
         const data = ctx.callbackQuery.data;
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery().catch(() => { });
         if (data === 'back') {
             ctx.wizard.selectStep(2);
             return ctx.wizard.steps[2](ctx);
@@ -151,7 +155,8 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
     const text = (_a = ctx.message) === null || _a === void 0 ? void 0 : _a.text;
     await (0, utils_1.safeDelete)(ctx);
     if (!text || isNaN(parseFloat(text.replace(/,/g, '')))) {
-        await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
         return;
     }
     const amount = parseFloat(text.replace(/,/g, ''));
@@ -197,7 +202,8 @@ ${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${
     if (!ctx.callbackQuery)
         return;
     const data = ctx.callbackQuery.data;
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     if (data === 'back') {
         ctx.wizard.selectStep(3);
         return ctx.wizard.steps[3](ctx);
@@ -226,7 +232,8 @@ Paste your wallet address below:
     var _a, _b;
     if (ctx.callbackQuery) {
         const data = ctx.callbackQuery.data;
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery().catch(() => { });
         if (data === 'back') {
             ctx.wizard.selectStep(4);
             return ctx.wizard.steps[4](ctx);
@@ -239,7 +246,8 @@ Paste your wallet address below:
     if (walletAddress)
         await (0, utils_1.safeDelete)(ctx);
     if (!walletAddress || walletAddress.length < 20) {
-        await ctx.answerCbQuery('⚠️ Invalid wallet address').catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery('⚠️ Invalid wallet address').catch(() => { });
         return;
     }
     ctx.wizard.state.data.walletAddress = walletAddress;

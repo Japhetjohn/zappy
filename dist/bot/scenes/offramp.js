@@ -8,7 +8,8 @@ const utils_1 = require("../../utils");
 const offrampWizard = new telegraf_1.Scenes.WizardScene('offramp-wizard', async (ctx) => {
     ctx.wizard.state.data = { beneficiary: {} };
     try {
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery().catch(() => { });
         const assets = await switch_1.switchService.getAssets();
         ctx.wizard.state.assets = assets;
         const symbols = [...new Set(assets.map(a => a.code))].sort();
@@ -38,7 +39,8 @@ Choose the crypto asset you wish to sell:
     if (!ctx.callbackQuery)
         return;
     const data = ctx.callbackQuery.data;
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     if (data === 'cancel')
         return ctx.scene.leave();
     if (data.startsWith('symbol:')) {
@@ -68,7 +70,8 @@ Select the blockchain network:
     if (!ctx.callbackQuery)
         return;
     const data = ctx.callbackQuery.data;
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     if (data === 'back_to_symbol') {
         ctx.wizard.selectStep(0);
         return ctx.wizard.steps[0](ctx);
@@ -112,7 +115,8 @@ Choose your local currency:
     if (!ctx.callbackQuery)
         return;
     const data = ctx.callbackQuery.data;
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     if (data === 'back') {
         ctx.wizard.selectStep(1);
         return ctx.wizard.steps[1](ctx);
@@ -152,7 +156,10 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
     const text = (_a = ctx.message) === null || _a === void 0 ? void 0 : _a.text;
     await (0, utils_1.safeDelete)(ctx);
     if (!text || isNaN(parseFloat(text.replace(/,/g, '')))) {
-        await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
+        else
+            await ctx.reply('⚠️ Please enter a valid number');
         return;
     }
     const amount = parseFloat(text.replace(/,/g, ''));
@@ -206,7 +213,8 @@ ${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${
         return ctx.scene.leave();
     if (data !== 'proceed')
         return;
-    await ctx.answerCbQuery('Quote confirmed!');
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery('Quote confirmed!');
     const saved = ctx.from ? storage_1.storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber) : [];
     ctx.wizard.state.savedBeneficiaries = saved;
     const msg = `
@@ -229,7 +237,8 @@ Type your <b>Bank Account Number</b> below:
     var _a, _b;
     if (ctx.callbackQuery) {
         const data = ctx.callbackQuery.data;
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery().catch(() => { });
         if (data === 'cancel')
             return ctx.scene.leave();
         if (data === 'back') {
@@ -296,7 +305,8 @@ Choose your receiving bank:
 }, async (ctx) => {
     if (ctx.callbackQuery) {
         const data = ctx.callbackQuery.data;
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery)
+            await ctx.answerCbQuery().catch(() => { });
         if (data === 'cancel')
             return ctx.scene.leave();
         if (data === 'change_bank') {

@@ -50,22 +50,26 @@ bot.command('start', async (ctx) => {
         storage_1.storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown');
     }
     await (0, index_1.safeDelete)(ctx);
-    return ctx.replyWithMarkdown(WELCOME_MSG, MAIN_KEYBOARD);
+    return ctx.replyWithHTML(WELCOME_MSG, MAIN_KEYBOARD);
 });
 bot.action('action_menu', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     await (0, index_1.safeEdit)(ctx, WELCOME_MSG, MAIN_KEYBOARD);
 });
 bot.action('action_onramp', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.enter('onramp-wizard');
 });
 bot.action('action_offramp', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.enter('offramp-wizard');
 });
 bot.action('action_beneficiaries', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     if (!ctx.from)
         return;
     const beneficiaries = storage_1.storageService.getBeneficiaries(ctx.from.id);
@@ -87,7 +91,8 @@ bot.action('action_beneficiaries', async (ctx) => {
     ]));
 });
 bot.action('action_help', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     const msg = `
 ❓ <b>Help & Info</b>
 
@@ -105,7 +110,8 @@ Zappy makes crypto buy/sell simple:
     ]));
 });
 bot.action('status', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     if (!ctx.from)
         return;
     const history = storage_1.storageService.getTransactionHistory(ctx.from.id);
@@ -133,7 +139,8 @@ bot.action('status', async (ctx) => {
 });
 bot.action(/^status_(.+)$/, async (ctx) => {
     const reference = ctx.match[1];
-    await ctx.answerCbQuery('Updating...').catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery('Updating...').catch(() => { });
     try {
         const status = await switch_1.switchService.getStatus(reference);
         const msg = formatStatusMessage(status);
@@ -146,7 +153,8 @@ bot.action(/^status_(.+)$/, async (ctx) => {
 });
 bot.action(/^confirm_(.+)$/, async (ctx) => {
     const reference = ctx.match[1];
-    await ctx.answerCbQuery('Notifying system...').catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery('Notifying system...').catch(() => { });
     try {
         await switch_1.switchService.confirmDeposit(reference);
         await (0, index_1.safeEdit)(ctx, `✅ <b>Payment Notified</b>\n\nReference: <code>${reference}</code>\n\nWe are now verifying your transfer.`, telegraf_1.Markup.inlineKeyboard([
@@ -159,7 +167,8 @@ bot.action(/^confirm_(.+)$/, async (ctx) => {
     }
 });
 bot.action('cancel', async (ctx) => {
-    await ctx.answerCbQuery().catch(() => { });
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.leave();
     await (0, index_1.safeEdit)(ctx, WELCOME_MSG, MAIN_KEYBOARD);
 });
@@ -222,8 +231,8 @@ async function startBot() {
         logger_1.default.info('📡 Attempting to launch bot...');
         try {
             await bot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => { });
-            await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
             logger_1.default.info('✨ Zappy Global is LIVE!');
+            await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
         }
         catch (err) {
             logger_1.default.error(`❌ Launch failed: ${err.message}`);
