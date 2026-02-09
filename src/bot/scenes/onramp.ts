@@ -302,7 +302,7 @@ Paste your wallet address below:
                 country: ctx.wizard.state.data.country,
                 asset: ctx.wizard.state.data.asset.id,
                 walletAddress: walletAddress,
-                holderName: ctx.from?.first_name || 'Member',
+                holderName: ctx.from?.first_name || ctx.from?.username || ctx.from?.id.toString(),
                 currency: ctx.wizard.state.data.currency
             });
 

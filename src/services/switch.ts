@@ -133,7 +133,7 @@ export class SwitchService {
                 beneficiary: {
                     wallet_address: data.walletAddress,
                     holder_type: "INDIVIDUAL",
-                    holder_name: data.holderName || "User"
+                    holder_name: data.holderName
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
