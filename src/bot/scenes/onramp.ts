@@ -122,11 +122,13 @@ Buying: <b>${ctx.wizard.state.data.symbol}</b> (${ctx.wizard.state.data.asset.bl
 
 Choose your local currency:
 `;
-            const buttons = coverage.map((c: any) => {
+            const currencyButtons = coverage.map((c: any) => {
                 const currency = Array.isArray(c.currency) ? c.currency[0] : c.currency;
                 const flag = c.country === 'NG' ? '🇳🇬' : '🌍';
-                return [Markup.button.callback(`${flag} ${currency} (${c.country})`, `country:${c.country}:${currency}`)];
+                return Markup.button.callback(`${flag} ${currency} (${c.country})`, `country:${c.country}:${currency}`);
             });
+
+            const buttons = formatButtons21(currencyButtons);
             buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
 
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));

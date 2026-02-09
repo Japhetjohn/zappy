@@ -2,7 +2,7 @@ import { Scenes, Markup } from 'telegraf';
 import { switchService } from '../../services/switch';
 import { storageService } from '../../services/storage';
 import { Beneficiary } from '../../types';
-import { formatAmount, safeEdit, safeDelete, paginationKeyboard, formatButtons21 } from '../../utils';
+import { formatAmount, safeEdit, safeDelete, paginationKeyboard, formatButtons21, sortBanksByPriority } from '../../utils';
 import { MAIN_KEYBOARD } from '../keyboards';
 
 const offrampWizard = new Scenes.WizardScene(
@@ -281,12 +281,15 @@ Type your <b>Bank Account Number</b> below:
 
 <i>Example: 0123456789</i>
 `;
-        let buttons: any[] = [];
-        if (saved.length > 0) {
-            buttons = saved.slice(0, 3).map(b => [Markup.button.callback(`👤 ${b.holderName} (${b.bankName})`, `use_saved:${b.id}`)]);
-        }
-        buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
+        const allButtons = [
+            ...(ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber).slice(0, 3).map(b =>
+                Markup.button.callback(`👤 ${b.holderName} (${b.bankName})`, `use_saved:${b.id}`)
+            ) : []),
+            Markup.button.callback('⬅️ Back', 'back'),
+            Markup.button.callback('❌ Cancel', 'cancel')
+        ];
 
+        const buttons = formatButtons21(allButtons);
         await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     },
@@ -351,7 +354,7 @@ Type your <b>Bank Account Number</b> below:
         try {
             if (!ctx.wizard.state.banks) {
                 const banks = await switchService.getInstitutions(ctx.wizard.state.data.country);
-                ctx.wizard.state.banks = banks;
+                ctx.wizard.state.banks = sortBanksByPriority(banks);
             }
 
             const page = ctx.wizard.state.bankPage || 0;
@@ -421,11 +424,12 @@ Choose your receiving bank:
                     throw new Error('Name not found');
                 }
             } catch (error: any) {
-                await ctx.replyWithHTML(`❌ <b>Verification Failed</b>`, Markup.inlineKeyboard([
-                    [Markup.button.callback('🏦 Change Bank', 'change_bank')],
-                    [Markup.button.callback('💳 Change Account', 'change_account')],
-                    [Markup.button.callback('❌ Cancel', 'cancel')]
-                ]));
+                const failButtons = formatButtons21([
+                    Markup.button.callback('🏦 Change Bank', 'change_bank'),
+                    Markup.button.callback('💳 Change Account', 'change_account'),
+                    Markup.button.callback('❌ Cancel', 'cancel')
+                ]);
+                await ctx.replyWithHTML(`❌ <b>Verification Failed</b>`, Markup.inlineKeyboard(failButtons));
                 return;
             }
         }
@@ -447,18 +451,19 @@ Choose your receiving bank:
 
 *Proceed with this transaction?*
 `;
-            const buttons = [
-                [Markup.button.callback('🚀 Yes, Create Order', 'initiate')],
-                [Markup.button.callback('❌ Cancel', 'cancel')]
+            const allReviewButtons = [
+                Markup.button.callback('🚀 Yes, Create Order', 'initiate'),
+                Markup.button.callback('❌ Cancel', 'cancel')
             ];
 
             // Only show save button if not already saved
             const saved = storageService.getBeneficiaries(ctx.from.id);
             const isSaved = saved.some(s => s.accountNumber === b.accountNumber && s.bankCode === b.bankCode);
             if (!isSaved) {
-                buttons.unshift([Markup.button.callback('💾 Save this Account', 'save_account')]);
+                allReviewButtons.unshift(Markup.button.callback('💾 Save this Account', 'save_account'));
             }
 
+            const buttons = formatButtons21(allReviewButtons);
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
         }
     },

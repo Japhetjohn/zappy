@@ -88,6 +88,39 @@ export const paginationKeyboard = (
     return Markup.inlineKeyboard(buttons);
 };
 /**
+ * Sorts banks, prioritizing specific names
+ */
+export const sortBanksByPriority = (banks: any[]) => {
+    const priorities = [
+        'ACCESS BANK',
+        'FIDELITY BANK',
+        'FIRST BANK OF NIGERIA',
+        'GTBANK PLC',
+        'KUDA MICROFINANCE BANK',
+        'MONIEPOINT MICROFINANCE BANK',
+        'OPAY',
+        'PALMPAY',
+        'PROVIDUS BANK',
+        'UNITED BANK FOR AFRICA',
+        'ZENITH BANK'
+    ];
+
+    return [...banks].sort((a, b) => {
+        const nameA = a.name.toUpperCase();
+        const nameB = b.name.toUpperCase();
+
+        const idxA = priorities.findIndex(p => nameA.includes(p));
+        const idxB = priorities.findIndex(p => nameB.includes(p));
+
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+
+        return nameA.localeCompare(nameB);
+    });
+};
+
+/**
  * Formats buttons in a 2-1-2-1 pattern
  */
 export const formatButtons21 = (buttons: any[]) => {
