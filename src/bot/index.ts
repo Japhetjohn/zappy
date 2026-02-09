@@ -97,96 +97,17 @@ bot.action('action_beneficiaries', async (ctx) => {
 
 bot.action('action_rates', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching rates...').catch(() => { });
-
-    try {
-        const rates = await switchService.getRates();
-        const msg = `
-📊 <b>Current Market Rates</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💰 <b>Buy USDT:</b> ₦${rates.buy.toLocaleString()} / $1
-💸 <b>Sell USDT:</b> ₦${rates.sell.toLocaleString()} / $1
-
-<i>Rates are refreshed every minute.</i>
-`;
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
-            [Markup.button.callback('🔄 Refresh', 'action_rates')],
-            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
-        ]));
-    } catch (e) {
-        await ctx.replyWithHTML('❌ Could not fetch rates. Please try again later.');
-    }
+    await handleRates(ctx);
 });
 
 bot.action('action_help', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
-    const msg = `
-❓ <b>How does Bitnova Africa work?</b>
-
-I'm designed to be the simplest way to move between cash and crypto! 🌍
-
-1️⃣ <b>To Buy Crypto:</b>
-• Click "Buy Crypto"
-• Choose what you want (e.g., USDT, USDC)
-• Send cash to the provided bank account
-• Receive crypto in your wallet automatically! ⚡️
-
-2️⃣ <b>To Sell Crypto:</b>
-• Click "Sell Crypto"
-• Tell me how much you want to sell
-• Provide your bank details (I'll remember them for next time! 🧠)
-• Send the crypto to the address I show you
-• Get cash in your bank account instantly! 💸
-
-<b>Need human help?</b>
-Just contact my team at <a href="https://t.me/Official_johny01">@Official_johny01</a> and they'll sort you out! 🤝
-`;
-    await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
-        [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
-    ]));
+    await handleHelp(ctx);
 });
 
 bot.action('action_history', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching history...').catch(() => { });
-    if (!ctx.from) return;
-
-    try {
-        const history = storageService.getTransactionHistory(ctx.from.id, 10, 0);
-        if (history.length === 0) {
-            await safeEdit(ctx, `📭 <b>No transaction history found.</b>\n\nStart your first transaction by clicking Buy or Sell!`, Markup.inlineKeyboard([
-                [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
-            ]));
-            return;
-        }
-
-        const msg = `
-📜 <b>Transaction History</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Select a transaction to see details:
-`;
-
-        const emojiMap: Record<string, string> = {
-            'PENDING': '⏳', 'PROCESSING': '⚙️', 'COMPLETED': '✅', 'FAILED': '❌', 'EXPIRED': '⏰', 'RECEIVED': '📥', 'VERIFIED': '✨'
-        };
-
-        const buttons = history.map(tx => {
-            const date = new Date(tx.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-            const typeEmoji = tx.type === 'ONRAMP' ? '💰' : '💸';
-            const statusEmoji = emojiMap[tx.status] || 'ℹ️';
-            // asset is like 'ethereum:usdt'
-            const assetName = tx.asset.split(':')[1]?.toUpperCase() || tx.asset.toUpperCase();
-            return [Markup.button.callback(`${statusEmoji} ${typeEmoji} ${tx.amount} ${assetName} • ${date}`, `status_${tx.reference}`)];
-        });
-
-        buttons.push([Markup.button.callback('🏠 Back to Menu', 'action_menu')]);
-
-        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
-    } catch (error: any) {
-        await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
-    }
+    await handleHistory(ctx);
 });
 
 // Dynamic status checker
@@ -257,7 +178,142 @@ ${emoji} <b>Transaction Status</b>
 `;
 }
 
-// Global Commands
+// ═══════════════════════════════════════════════════════════
+// 🧠 SEAMLESS KEYWORD TRIGGERS
+// ═══════════════════════════════════════════════════════════
+
+// Trigger Welcome/Menu: hi, hello, home, menu, etc.
+bot.hears(/\b(hi|hello|hey|yo|start|menu|home|start)\b/i, async (ctx) => {
+    if (ctx.scene.current) return; // Don't interrupt active wizards
+    const name = ctx.from?.first_name || 'Friend';
+    return ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
+});
+
+// Trigger Buy: buy, send, onramp, deposit
+bot.hears(/\b(buy|send|onramp|deposit|crypto)\b/i, async (ctx) => {
+    if (ctx.scene.current) return;
+    await ctx.scene.enter('onramp-wizard');
+});
+
+// Trigger Sell: sell, withdraw, offramp, cashout
+bot.hears(/\b(sell|withdraw|offramp|cashout|cash)\b/i, async (ctx) => {
+    if (ctx.scene.current) return;
+    await ctx.scene.enter('offramp-wizard');
+});
+
+// Trigger Rates: rate, price, market
+bot.hears(/\b(rate|rates|price|market)\b/i, async (ctx) => {
+    if (ctx.scene.current) return;
+    // Re-trigger the action logic
+    ctx.match = ['action_rates'] as any;
+    // Instead of duplicating logic, we can manually call the action handler if needed, 
+    // but better to just trigger a re-route or define a shared function.
+    // For now, let's just trigger the scene or the logic.
+    await handleRates(ctx);
+});
+
+// Trigger History: history, transactions, records
+bot.hears(/\b(history|transactions|records|logs)\b/i, async (ctx) => {
+    if (ctx.scene.current) return;
+    await handleHistory(ctx);
+});
+
+// Trigger Help: help, support, tutorial
+bot.hears(/\b(help|support|tutorial|faq)\b/i, async (ctx) => {
+    if (ctx.scene.current) return;
+    await handleHelp(ctx);
+});
+
+// Helper functions to reuse logic
+async function handleRates(ctx: any) {
+    try {
+        const rates = await switchService.getRates();
+        const msg = `
+📊 <b>Current Market Rates</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 <b>Buy USDT:</b> ₦${rates.buy.toLocaleString()} / $1
+💸 <b>Sell USDT:</b> ₦${rates.sell.toLocaleString()} / $1
+
+<i>Rates are refreshed every minute.</i>
+`;
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            [Markup.button.callback('🔄 Refresh', 'action_rates')],
+            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    } catch (e) {
+        await ctx.replyWithHTML('❌ Could not fetch rates. Please try again later.');
+    }
+}
+
+async function handleHistory(ctx: any) {
+    if (!ctx.from) return;
+    try {
+        const history = storageService.getTransactionHistory(ctx.from.id, 10, 0);
+        if (history.length === 0) {
+            await ctx.replyWithHTML(`📭 <b>No transaction history found.</b>\n\nStart your first transaction by clicking Buy or Sell!`, Markup.inlineKeyboard([
+                [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+            ]));
+            return;
+        }
+
+        const msg = `
+📜 <b>Transaction History</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Select a transaction to see details:
+`;
+        const emojiMap: Record<string, string> = {
+            'PENDING': '⏳', 'PROCESSING': '⚙️', 'COMPLETED': '✅', 'FAILED': '❌', 'EXPIRED': '⏰', 'RECEIVED': '📥', 'VERIFIED': '✨'
+        };
+
+        const buttons = history.map(tx => {
+            const date = new Date(tx.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+            const typeEmoji = tx.type === 'ONRAMP' ? '💰' : '💸';
+            const statusEmoji = emojiMap[tx.status] || 'ℹ️';
+            const assetName = tx.asset.split(':')[1]?.toUpperCase() || tx.asset.toUpperCase();
+            return [Markup.button.callback(`${statusEmoji} ${typeEmoji} ${tx.amount} ${assetName} • ${date}`, `status_${tx.reference}`)];
+        });
+
+        buttons.push([Markup.button.callback('🏠 Back to Menu', 'action_menu')]);
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+    } catch (error: any) {
+        await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
+    }
+}
+
+async function handleHelp(ctx: any) {
+    const msg = `
+❓ <b>How does Bitnova Africa work?</b>
+
+I'm designed to be the simplest way to move between cash and crypto! 🌍
+
+1️⃣ <b>To Buy Crypto:</b>
+• Click "Buy Crypto"
+• Choose what you want (e.g., USDT, USDC)
+• Send cash to the provided bank account
+• Receive crypto in your wallet automatically! ⚡️
+
+2️⃣ <b>To Sell Crypto:</b>
+• Click "Sell Crypto"
+• Tell me how much you want to sell
+• Provide your bank details (I'll remember them for next time! 🧠)
+• Send the crypto to the address I show you
+• Get cash in your bank account instantly! 💸
+
+<b>Need human help?</b>
+Just contact my team at <a href="https://t.me/Official_johny01">@Official_johny01</a> and they'll sort you out! 🤝
+`;
+    await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+        [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+    ]));
+}
+
+// ═══════════════════════════════════════════════════════════
+// 🏁 START/GLOBAL COMMANDS
+// ═══════════════════════════════════════════════════════════
 bot.command('onramp', async (ctx) => {
     await safeDelete(ctx);
     await ctx.scene.enter('onramp-wizard');
