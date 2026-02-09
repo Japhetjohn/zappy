@@ -494,6 +494,15 @@ Choose your receiving bank:
                 }
             });
 
+            // Save transaction to local database
+            storageService.addTransaction(
+                ctx.from.id,
+                result.reference,
+                'OFFRAMP',
+                ctx.wizard.state.data.asset.id, // Store asset ID (e.g., 'ethereum:usdc') for network parsing
+                ctx.wizard.state.data.amount
+            );
+
             const msg = `
 ✅ <b>Order Created!</b>
 
