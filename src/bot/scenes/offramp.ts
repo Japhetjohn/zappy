@@ -33,10 +33,10 @@ Choose the crypto asset you wish to sell:
             }
             rows.push([Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await safeEdit(ctx, msg, Markup.inlineKeyboard(rows));
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(rows));
             return ctx.wizard.next();
         } catch (error: any) {
-            await safeEdit(ctx, `❌ <b>Error:</b> ${error.message}`, Markup.inlineKeyboard([
+            await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`, Markup.inlineKeyboard([
                 [Markup.button.callback('🏠 Back to Menu', 'cancel')]
             ]));
             return ctx.scene.leave();
@@ -121,10 +121,10 @@ Choose your local currency:
             });
             buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
             return ctx.wizard.next();
         } catch (error: any) {
-            await safeEdit(ctx, `❌ <b>Error:</b> ${error.message}`);
+            await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
             return ctx.scene.leave();
         }
     },
@@ -158,7 +158,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
 <i>Example: 100</i>
 `;
-        await safeEdit(ctx, msg, Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
         ]));
         return ctx.wizard.next();
@@ -179,7 +179,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
         }
 
         const text = ctx.message?.text;
-        await safeDelete(ctx);
+        // await safeDelete(ctx); // Stop deleting
 
         if (!text || isNaN(parseFloat(text.replace(/,/g, '')))) {
             if (ctx.callbackQuery) await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
@@ -214,7 +214,7 @@ ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.cur
 
 ⏱ <i>Expires in 5 minutes</i>
 `;
-            await safeEdit(ctx, msg, Markup.inlineKeyboard([
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
                 [Markup.button.callback('✅ Confirm & Continue', 'proceed')],
                 [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
             ]));
