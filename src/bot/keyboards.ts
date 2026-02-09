@@ -7,7 +7,8 @@ export const MAIN_KEYBOARD = Markup.inlineKeyboard([
     ],
     [
         Markup.button.callback('📂 Saved Accounts', 'action_beneficiaries'),
-        Markup.button.callback('📊 Status', 'status')
+        Markup.button.callback('📊 Rates', 'action_rates'),
+        Markup.button.callback('⏳ Status', 'status')
     ],
     [
         Markup.button.callback('❓ Help & Info', 'action_help')

@@ -337,26 +337,21 @@ Amount: <b>${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data
 
 💡 <i>Your crypto will be sent automatically after your transfer is confirmed.</i>
 `;
-            import { MAIN_KEYBOARD } from '../keyboards';
 
-...
-
-            // ... (inside final step)
-            
             const buttons = [
-    [Markup.button.callback('💳 I have paid', `confirm_${result.reference}`)],
-    ...MAIN_KEYBOARD.reply_markup.inline_keyboard
-];
+                [Markup.button.callback('💳 I have paid', `confirm_${result.reference}`)],
+                ...(MAIN_KEYBOARD.reply_markup?.inline_keyboard || [])
+            ];
 
-await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
-return ctx.scene.leave();
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+            return ctx.scene.leave();
 
         } catch (error: any) {
-    await ctx.replyWithHTML(`❌ <b>Order Failed:</b> ${error.message}`, Markup.inlineKeyboard([
-        [Markup.button.callback('🏠 Back to Menu', 'cancel')]
-    ]));
-    return ctx.scene.leave();
-}
+            await ctx.replyWithHTML(`❌ <b>Order Failed:</b> ${error.message}`, Markup.inlineKeyboard([
+                [Markup.button.callback('🏠 Back to Menu', 'cancel')]
+            ]));
+            return ctx.scene.leave();
+        }
     }
 );
 

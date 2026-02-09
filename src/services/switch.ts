@@ -219,6 +219,30 @@ export class SwitchService {
         }
     }
 
+    async getRates(): Promise<{ buy: number, sell: number }> {
+        try {
+            // Estimate Buy Rate: How much NGN for 1 USDT? 
+            // We quote for a standard amount like 100,000 NGN to get a realistic rate including fees
+            const buyQuote = await this.getOnrampQuote(100000, 'NG', 'ethereum:usdt', 'NGN');
+            // rate = paid_amount / received_amount
+            const buyRate = buyQuote.source.amount / buyQuote.destination.amount;
+
+            // Estimate Sell Rate: How much NGN for 1 USDT?
+            const sellQuote = await this.getOfframpQuote(100, 'NG', 'ethereum:usdt', 'NGN');
+            // rate = received_amount / sent_amount
+            const sellRate = sellQuote.destination.amount / sellQuote.source.amount;
+
+            return {
+                buy: Math.round(buyRate),
+                sell: Math.round(sellRate)
+            };
+        } catch (error: any) {
+            console.error('Error fetching rates:', error.message);
+            // Fallback estimation if API fails (just so bot doesn't crash)
+            return { buy: 0, sell: 0 };
+        }
+    }
+
     async confirmDeposit(reference: string): Promise<any> {
         try {
             const response = await this.api.post('/confirm', { reference });

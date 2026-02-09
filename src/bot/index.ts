@@ -95,6 +95,30 @@ bot.action('action_beneficiaries', async (ctx) => {
     ]));
 });
 
+bot.action('action_rates', async (ctx) => {
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching rates...').catch(() => { });
+
+    try {
+        const rates = await switchService.getRates();
+        const msg = `
+📊 <b>Current Market Rates</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 <b>Buy USDT:</b> ₦${rates.buy.toLocaleString()} / $1
+💸 <b>Sell USDT:</b> ₦${rates.sell.toLocaleString()} / $1
+
+<i>Rates are refreshed every minute.</i>
+`;
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            [Markup.button.callback('🔄 Refresh', 'action_rates')],
+            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    } catch (e) {
+        await ctx.replyWithHTML('❌ Could not fetch rates. Please try again later.');
+    }
+});
+
 bot.action('action_help', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     const msg = `

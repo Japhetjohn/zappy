@@ -527,7 +527,7 @@ Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 `;
             const buttons = [
                 [Markup.button.callback('📊 Track Status', `status_${result.reference}`)],
-                ...MAIN_KEYBOARD.reply_markup.inline_keyboard
+                ...(MAIN_KEYBOARD.reply_markup?.inline_keyboard || [])
             ];
 
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
