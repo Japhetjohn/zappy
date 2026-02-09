@@ -147,32 +147,45 @@ Just contact my team at <a href="https://t.me/Official_johny01">@Official_johny0
     ]));
 });
 
-bot.action('status', async (ctx) => {
-    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
+bot.action('action_history', async (ctx) => {
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching history...').catch(() => { });
     if (!ctx.from) return;
 
-    const history = storageService.getTransactionHistory(ctx.from.id);
-    if (history.length === 0) {
-        await ctx.replyWithHTML(`📭 *No history found.*`, Markup.inlineKeyboard([
-            [Markup.button.callback('🏠 Menu', 'action_menu')]
-        ]));
-        return;
-    }
-
-    const last = history[history.length - 1];
-    await ctx.replyWithHTML(`⏳ <i>Checking status for</i> <code>${last.reference}</code>...`);
-
     try {
-        const status = await switchService.getStatus(last.reference);
-        const msg = formatStatusMessage(status);
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
-            [Markup.button.callback('🔄 Refresh', `status_${last.reference}`)],
-            [Markup.button.callback('🏠 Menu', 'action_menu')]
-        ]));
+        const history = storageService.getTransactionHistory(ctx.from.id, 10, 0);
+        if (history.length === 0) {
+            await safeEdit(ctx, `📭 <b>No transaction history found.</b>\n\nStart your first transaction by clicking Buy or Sell!`, Markup.inlineKeyboard([
+                [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+            ]));
+            return;
+        }
+
+        const msg = `
+📜 <b>Transaction History</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Select a transaction to see details:
+`;
+
+        const emojiMap: Record<string, string> = {
+            'PENDING': '⏳', 'PROCESSING': '⚙️', 'COMPLETED': '✅', 'FAILED': '❌', 'EXPIRED': '⏰', 'RECEIVED': '📥', 'VERIFIED': '✨'
+        };
+
+        const buttons = history.map(tx => {
+            const date = new Date(tx.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+            const typeEmoji = tx.type === 'ONRAMP' ? '💰' : '💸';
+            const statusEmoji = emojiMap[tx.status] || 'ℹ️';
+            // asset is like 'ethereum:usdt'
+            const assetName = tx.asset.split(':')[1]?.toUpperCase() || tx.asset.toUpperCase();
+            return [Markup.button.callback(`${statusEmoji} ${typeEmoji} ${tx.amount} ${assetName} • ${date}`, `status_${tx.reference}`)];
+        });
+
+        buttons.push([Markup.button.callback('🏠 Back to Menu', 'action_menu')]);
+
+        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
     } catch (error: any) {
-        await ctx.replyWithHTML(`❌ *Error:* ${error.message}`, Markup.inlineKeyboard([
-            [Markup.button.callback('🏠 Menu', 'action_menu')]
-        ]));
+        await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
     }
 });
 
@@ -182,12 +195,22 @@ bot.action(/^status_(.+)$/, async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Updating...').catch(() => { });
     try {
         const status = await switchService.getStatus(reference);
+        const transaction = storageService.getTransaction(reference);
+
+        // Sync status in DB
+        if (transaction && transaction.status !== status.status) {
+            storageService.updateTransactionStatus(reference, status.status);
+        }
+
         const msg = formatStatusMessage(status);
         await safeEdit(ctx, msg, Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Refresh', `status_${reference}`)],
-            [Markup.button.callback('🏠 Menu', 'action_menu')]
+            [Markup.button.callback('📜 Back to History', 'action_history')],
+            [Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));
-    } catch (e) { }
+    } catch (e) {
+        await ctx.replyWithHTML('❌ Could not fetch transaction details.');
+    }
 });
 
 bot.action(/^confirm_(.+)$/, async (ctx) => {
@@ -213,22 +236,24 @@ bot.action('cancel', async (ctx) => {
 
 function formatStatusMessage(status: any) {
     const emojiMap: Record<string, string> = {
-        'PENDING': '⏳', 'PROCESSING': '⚙️', 'COMPLETED': '✅', 'FAILED': '❌'
+        'PENDING': '⏳', 'PROCESSING': '⚙️', 'COMPLETED': '✅', 'FAILED': '❌', 'EXPIRED': '⏰', 'RECEIVED': '📥', 'VERIFIED': '✨'
     };
     const emoji = emojiMap[status.status] || 'ℹ️';
 
     return `
-${emoji} <b>Asset Status</b>
+${emoji} <b>Transaction Status</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📋 <b>Ref:</b> <code>${status.reference}</code>
 🚦 <b>Status:</b> <b>${status.status}</b>
 
-💰 <b>Amount:</b> ${status.source.amount} ${status.source.currency}
-🎁 <b>Receiving:</b> ${status.destination.amount} ${status.destination.currency}
+💰 <b>You Sent/Requested:</b> ${formatAmount(status.source.amount)} ${status.source.currency}
+💵 <b>Estimated Payout:</b> ${formatAmount(status.destination.amount)} ${status.destination.currency}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⏱ <i>Updated: ${new Date().toLocaleTimeString()}</i>
 `;
 }
 

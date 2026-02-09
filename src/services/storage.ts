@@ -70,9 +70,9 @@ export const storageService = {
     return result.lastInsertRowid;
   },
 
-  getTransactionHistory: (userId: number) => {
-    const stmt = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 5');
-    return stmt.all(userId) as any[];
+  getTransactionHistory: (userId: number, limit: number = 10, offset: number = 0) => {
+    const stmt = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?');
+    return stmt.all(userId, limit, offset) as any[];
   },
 
   addTransaction: (userId: number, reference: string, type: string, asset: string, amount: number) => {
