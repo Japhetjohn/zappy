@@ -12,16 +12,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Japhetjohn/zappy.git"
+    "url": "git+https://github.com/Japhetjohn/bitnova.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/Japhetjohn/zappy/issues"
+    "url": "https://github.com/Japhetjohn/bitnova/issues"
   },
-  "homepage": "https://github.com/Japhetjohn/zappy#readme",
+  "homepage": "https://github.com/Japhetjohn/bitnova#readme",
   "dependencies": {
     "@types/node": "^25.1.0",
     "axios": "^1.13.4",
