@@ -9,5 +9,6 @@ export const config = {
     baseUrl: process.env.SWITCH_API_URL!,
     webhookSecret: process.env.SWITCH_WEBHOOK_SECRET!,
   },
+  developerFee: Number(process.env.DEVELOPER_FEE) || 1,
   port: process.env.PORT || 3000,
 };

@@ -104,7 +104,7 @@ export class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: 1,
+                developer_fee: config.developerFee,
             });
             if (response.data.success) {
                 return response.data.data;
@@ -137,7 +137,7 @@ export class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: 1,
+                developer_fee: config.developerFee,
             });
             if (response.data.success) {
                 return response.data.data;
@@ -157,7 +157,7 @@ export class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: 1,
+                developer_fee: config.developerFee,
             });
             if (response.data.success) {
                 return response.data.data;
@@ -194,7 +194,7 @@ export class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: 1,
+                developer_fee: config.developerFee,
             });
             if (response.data.success) {
                 return response.data.data;
