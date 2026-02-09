@@ -26,11 +26,11 @@ Choose the crypto asset you wish to sell:
             rows.push(buttons.slice(i, i + 2));
         }
         rows.push([telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]);
-        await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard(rows));
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(rows));
         return ctx.wizard.next();
     }
     catch (error) {
-        await (0, utils_1.safeEdit)(ctx, `❌ <b>Error:</b> ${error.message}`, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'cancel')]
         ]));
         return ctx.scene.leave();
@@ -64,7 +64,7 @@ Select the blockchain network:
         telegraf_1.Markup.button.callback(`🔹 ${a.blockchain.name}`, `asset:${a.id}`)
     ]);
     buttons.push([telegraf_1.Markup.button.callback('⬅️ Back', 'back_to_symbol')]);
-    await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard(buttons));
+    await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(buttons));
     return ctx.wizard.next();
 }, async (ctx) => {
     if (!ctx.callbackQuery)
@@ -104,11 +104,11 @@ Choose your local currency:
             return [telegraf_1.Markup.button.callback(`${flag} ${currency} (${c.country})`, `country:${c.country}:${currency}`)];
         });
         buttons.push([telegraf_1.Markup.button.callback('⬅️ Back', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]);
-        await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard(buttons));
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     }
     catch (error) {
-        await (0, utils_1.safeEdit)(ctx, `❌ <b>Error:</b> ${error.message}`);
+        await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
         return ctx.scene.leave();
     }
 }, async (ctx) => {
@@ -137,7 +137,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
 <i>Example: 100</i>
 `;
-    await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
+    await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback('⬅️ Back', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
     ]));
     return ctx.wizard.next();
@@ -154,7 +154,6 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
         return;
     }
     const text = (_a = ctx.message) === null || _a === void 0 ? void 0 : _a.text;
-    await (0, utils_1.safeDelete)(ctx);
     if (!text || isNaN(parseFloat(text.replace(/,/g, '')))) {
         if (ctx.callbackQuery)
             await ctx.answerCbQuery('⚠️ Please enter a number').catch(() => { });
@@ -182,7 +181,7 @@ ${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${
 
 ⏱ <i>Expires in 5 minutes</i>
 `;
-        await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('✅ Confirm & Continue', 'proceed')],
             [telegraf_1.Markup.button.callback('⬅️ Back', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
         ]));
@@ -196,7 +195,7 @@ ${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${
         else {
             errorMsg = `❌ <b>Error:</b> ${errorMsg}`;
         }
-        await (0, utils_1.safeEdit)(ctx, errorMsg, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(errorMsg, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🔄 Try Again', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
         ]));
         return;
@@ -231,7 +230,7 @@ Type your <b>Bank Account Number</b> below:
         buttons = saved.slice(0, 3).map(b => [telegraf_1.Markup.button.callback(`👤 ${b.holderName} (${b.bankName})`, `use_saved:${b.id}`)]);
     }
     buttons.push([telegraf_1.Markup.button.callback('⬅️ Back', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]);
-    await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard(buttons));
+    await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(buttons));
     return ctx.wizard.next();
 }, async (ctx) => {
     var _a, _b;
@@ -266,7 +265,7 @@ Type your <b>Bank Account Number</b> below:
             const page = parseInt(data.replace('page:', ''));
             ctx.wizard.state.bankPage = page;
             const kb = (0, utils_1.paginationKeyboard)(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
-            await (0, utils_1.safeEdit)(ctx, ctx.wizard.state.bankMsg, kb);
+            await ctx.replyWithHTML(ctx.wizard.state.bankMsg, kb);
             return;
         }
         if (data === 'back_to_acc') {
@@ -276,7 +275,6 @@ Type your <b>Bank Account Number</b> below:
     }
     const accountNumber = (_b = (_a = ctx.message) === null || _a === void 0 ? void 0 : _a.text) === null || _b === void 0 ? void 0 : _b.trim();
     if (accountNumber) {
-        await (0, utils_1.safeDelete)(ctx);
         ctx.wizard.state.data.beneficiary.accountNumber = accountNumber;
     }
     try {
@@ -296,11 +294,11 @@ Choose your receiving bank:
 `;
         ctx.wizard.state.bankMsg = msg;
         const kb = (0, utils_1.paginationKeyboard)(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
-        await (0, utils_1.safeEdit)(ctx, msg, kb);
+        await ctx.replyWithHTML(msg, kb);
         return;
     }
     catch (e) {
-        await (0, utils_1.safeEdit)(ctx, '❌ Failed to load banks. Type /cancel to restart.');
+        await ctx.replyWithHTML('❌ Failed to load banks. Type /cancel to restart.');
     }
 }, async (ctx) => {
     if (ctx.callbackQuery) {
@@ -325,7 +323,7 @@ Choose your receiving bank:
     const b = ctx.wizard.state.data.beneficiary;
     if (!b.holderName && b.bankCode && b.accountNumber) {
         try {
-            await (0, utils_1.safeEdit)(ctx, '⏳ <i>Verifying account...</i>');
+            await ctx.replyWithHTML('⏳ <i>Verifying account...</i>');
             const result = await switch_1.switchService.lookupInstitution(ctx.wizard.state.data.country, b.bankCode, b.accountNumber);
             const possibleFields = ['account_name', 'accountName', 'name', 'holder_name', 'beneficiary_name'];
             let name = '';
@@ -351,7 +349,7 @@ Choose your receiving bank:
             }
         }
         catch (error) {
-            await (0, utils_1.safeEdit)(ctx, `❌ <b>Verification Failed</b>`, telegraf_1.Markup.inlineKeyboard([
+            await ctx.replyWithHTML(`❌ <b>Verification Failed</b>`, telegraf_1.Markup.inlineKeyboard([
                 [telegraf_1.Markup.button.callback('🏦 Change Bank', 'change_bank')],
                 [telegraf_1.Markup.button.callback('💳 Change Account', 'change_account')],
                 [telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
@@ -376,14 +374,14 @@ Choose your receiving bank:
 
 *Proceed with this transaction?*
 `;
-        await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🚀 Yes, Create Order', 'initiate')],
             [telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
         ]));
     }
 }, async (ctx) => {
     try {
-        await (0, utils_1.safeEdit)(ctx, '⏳ <i>Creating secure wallet...</i>');
+        await ctx.replyWithHTML('⏳ <i>Creating secure wallet...</i>');
         const result = await switch_1.switchService.initiateOfframp({
             amount: ctx.wizard.state.data.amount,
             country: ctx.wizard.state.data.country,
@@ -416,14 +414,14 @@ Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 
 💡 <i>Your payment will be processed automatically after confirmation.</i>
 `;
-        await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('📊 Track Status', `status_${result.reference}`)],
             [telegraf_1.Markup.button.callback('🏠 Main Menu', 'cancel')]
         ]));
         return ctx.scene.leave();
     }
     catch (error) {
-        await (0, utils_1.safeEdit)(ctx, `❌ <b>Order Failed:</b> ${error.message}`, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(`❌ <b>Order Failed:</b> ${error.message}`, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'cancel')]
         ]));
         return ctx.scene.leave();

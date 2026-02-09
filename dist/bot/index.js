@@ -49,13 +49,12 @@ bot.command('start', async (ctx) => {
     if (ctx.from) {
         storage_1.storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown');
     }
-    await (0, index_1.safeDelete)(ctx);
     return ctx.replyWithHTML(WELCOME_MSG, MAIN_KEYBOARD);
 });
 bot.action('action_menu', async (ctx) => {
     if (ctx.callbackQuery)
         await ctx.answerCbQuery().catch(() => { });
-    await (0, index_1.safeEdit)(ctx, WELCOME_MSG, MAIN_KEYBOARD);
+    await ctx.replyWithHTML(WELCOME_MSG, MAIN_KEYBOARD);
 });
 bot.action('action_onramp', async (ctx) => {
     if (ctx.callbackQuery)
@@ -86,7 +85,7 @@ bot.action('action_beneficiaries', async (ctx) => {
             msg += `<b>${i + 1}.</b> ${b.holderName}\n   ${b.bankName} • <code>${b.accountNumber}</code>\n\n`;
         });
     }
-    await (0, index_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
+    await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
     ]));
 });
@@ -105,7 +104,7 @@ Zappy makes crypto buy/sell simple:
 
 🤝 <b>Support:</b> Contact @ZappySupport
 `;
-    await (0, index_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
+    await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
     ]));
 });
@@ -116,23 +115,23 @@ bot.action('status', async (ctx) => {
         return;
     const history = storage_1.storageService.getTransactionHistory(ctx.from.id);
     if (history.length === 0) {
-        await (0, index_1.safeEdit)(ctx, `📭 *No history found.*`, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(`📭 *No history found.*`, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
         return;
     }
     const last = history[history.length - 1];
-    await (0, index_1.safeEdit)(ctx, `⏳ <i>Checking status for</i> <code>${last.reference}</code>...`);
+    await ctx.replyWithHTML(`⏳ <i>Checking status for</i> <code>${last.reference}</code>...`);
     try {
         const status = await switch_1.switchService.getStatus(last.reference);
         const msg = formatStatusMessage(status);
-        await (0, index_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🔄 Refresh', `status_${last.reference}`)],
             [telegraf_1.Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
     }
     catch (error) {
-        await (0, index_1.safeEdit)(ctx, `❌ *Error:* ${error.message}`, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(`❌ *Error:* ${error.message}`, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
     }
