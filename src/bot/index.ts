@@ -25,15 +25,19 @@ bot.use(session());
 bot.use(stage.middleware());
 
 // Visual Helpers
-const WELCOME_MSG = `
-⚡️ <b>Zappy Finance</b>
+// Visual Helpers
+const getWelcomeMsg = (name: string) => `
+Hello ${name} 👋
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+My name is <b>Zappy</b>, your friendly crypto assistant! 🤖✨
 
-Premium crypto solutions for global markets.
-Secure, fast, and entirely automated.
+I'm here to make buying and selling crypto super easy, fast, and secure for you. Whether you want to turn cash into crypto or crypto into cash, I've got you covered! 🚀
 
-🚀 <b>Choose an action:</b>
+<b>Here is what I can do for you:</b>
+💰 <b>Buy Crypto:</b> Get crypto sent directly to your wallet.
+💸 <b>Sell Crypto:</b> Turn your crypto into cash in your bank account.
+
+<i>Ready to get started? Tap a button below!</i> 👇
 `;
 
 const MAIN_KEYBOARD = Markup.inlineKeyboard([
@@ -57,8 +61,8 @@ bot.command('start', async (ctx) => {
     if (ctx.from) {
         storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown');
     }
-    // await safeDelete(ctx); // Stop cleaning start command
-    return ctx.replyWithHTML(WELCOME_MSG, MAIN_KEYBOARD);
+    const name = ctx.from?.first_name || 'Friend';
+    return ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -66,7 +70,8 @@ bot.command('start', async (ctx) => {
 // ═══════════════════════════════════════════════════════════
 bot.action('action_menu', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
-    await ctx.replyWithHTML(WELCOME_MSG, MAIN_KEYBOARD);
+    const name = ctx.from?.first_name || 'Friend';
+    await ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
 });
 
 bot.action('action_onramp', async (ctx) => {
@@ -105,16 +110,25 @@ bot.action('action_beneficiaries', async (ctx) => {
 bot.action('action_help', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     const msg = `
-❓ <b>Help & Info</b>
+❓ <b>How does Zappy work?</b>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+I'm designed to be the simplest way to move between cash and crypto! 🌍
 
-Zappy makes crypto buy/sell simple:
+1️⃣ <b>To Buy Crypto:</b>
+• Click "Buy Crypto"
+• Choose what you want (e.g., USDT, USDC)
+• Send cash to the provided bank account
+• Receive crypto in your wallet automatically! ⚡️
 
-💰 <b>Buying:</b> Choose asset → Pay via Transfer → Receive Crypto.
-💸 <b>Selling:</b> Choose asset → Provide Bank → Send Crypto → Receive Cash.
+2️⃣ <b>To Sell Crypto:</b>
+• Click "Sell Crypto"
+• Tell me how much you want to sell
+• Provide your bank details (I'll remember them for next time! 🧠)
+• Send the crypto to the address I show you
+• Get cash in your bank account instantly! 💸
 
-🤝 <b>Support:</b> Contact @ZappySupport
+<b>Need human help?</b>
+Just contact my team at @ZappySupport and they'll sort you out! 🤝
 `;
     await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
@@ -181,7 +195,8 @@ bot.action(/^confirm_(.+)$/, async (ctx) => {
 bot.action('cancel', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.leave();
-    await safeEdit(ctx, WELCOME_MSG, MAIN_KEYBOARD);
+    const name = ctx.from?.first_name || 'Friend';
+    await safeEdit(ctx, getWelcomeMsg(name), MAIN_KEYBOARD);
 });
 
 function formatStatusMessage(status: any) {
@@ -216,7 +231,8 @@ bot.command('offramp', async (ctx) => {
 });
 bot.command('help', async (ctx) => {
     await safeDelete(ctx);
-    return ctx.replyWithMarkdown(WELCOME_MSG, MAIN_KEYBOARD);
+    const name = ctx.from?.first_name || 'Friend';
+    return ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
 });
 
 // Error Handler
