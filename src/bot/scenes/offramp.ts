@@ -49,7 +49,7 @@ Choose the crypto asset you wish to sell:
     async (ctx: any) => {
         if (!ctx.callbackQuery) return;
         const data = ctx.callbackQuery.data;
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
         if (data === 'cancel') return ctx.scene.leave();
 
         if (data.startsWith('symbol:')) {
@@ -85,7 +85,7 @@ Select the blockchain network:
     async (ctx: any) => {
         if (!ctx.callbackQuery) return;
         const data = ctx.callbackQuery.data;
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
 
         if (data === 'back_to_symbol') {
             ctx.wizard.selectStep(0);
@@ -135,7 +135,7 @@ Choose your local currency:
     async (ctx: any) => {
         if (!ctx.callbackQuery) return;
         const data = ctx.callbackQuery.data;
-        await ctx.answerCbQuery().catch(() => { });
+        if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
 
         if (data === 'back') {
             ctx.wizard.selectStep(1); // Back to Network selection
@@ -278,7 +278,7 @@ Type your <b>Bank Account Number</b> below:
     async (ctx: any) => {
         if (ctx.callbackQuery) {
             const data = ctx.callbackQuery.data;
-            await ctx.answerCbQuery().catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
 
             if (data === 'cancel') return ctx.scene.leave();
             if (data === 'back') {
@@ -361,7 +361,7 @@ Choose your receiving bank:
     async (ctx: any) => {
         if (ctx.callbackQuery) {
             const data = ctx.callbackQuery.data;
-            await ctx.answerCbQuery().catch(() => { });
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
 
             if (data === 'cancel') return ctx.scene.leave();
 
