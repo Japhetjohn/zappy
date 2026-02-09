@@ -228,7 +228,7 @@ ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.cur
                 errorMsg = `❌ <b>Error:</b> ${errorMsg}`;
             }
 
-            await safeEdit(ctx, errorMsg, Markup.inlineKeyboard([
+            await ctx.replyWithHTML(errorMsg, Markup.inlineKeyboard([
                 [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
             ]));
             return;
@@ -313,7 +313,7 @@ Type your <b>Bank Account Number</b> below:
                 const page = parseInt(data.replace('page:', ''));
                 ctx.wizard.state.bankPage = page;
                 const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
-                await safeEdit(ctx, ctx.wizard.state.bankMsg, kb);
+                await ctx.replyWithHTML(ctx.wizard.state.bankMsg, kb);
                 return;
             }
 
@@ -325,7 +325,7 @@ Type your <b>Bank Account Number</b> below:
 
         const accountNumber = ctx.message?.text?.trim();
         if (accountNumber) {
-            await safeDelete(ctx);
+            // await safeDelete(ctx); // Stop deleting
             ctx.wizard.state.data.beneficiary.accountNumber = accountNumber;
         }
 
@@ -347,11 +347,11 @@ Choose your receiving bank:
 `;
             ctx.wizard.state.bankMsg = msg;
             const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
-            await safeEdit(ctx, msg, kb);
+            await ctx.replyWithHTML(msg, kb);
             // Stay in this step to handle callbacks
             return;
         } catch (e) {
-            await safeEdit(ctx, '❌ Failed to load banks. Type /cancel to restart.');
+            await ctx.replyWithHTML('❌ Failed to load banks. Type /cancel to restart.');
         }
     },
 
@@ -382,7 +382,7 @@ Choose your receiving bank:
         const b = ctx.wizard.state.data.beneficiary;
         if (!b.holderName && b.bankCode && b.accountNumber) {
             try {
-                await safeEdit(ctx, '⏳ <i>Verifying account...</i>');
+                await ctx.replyWithHTML('⏳ <i>Verifying account...</i>');
                 const result = await switchService.lookupInstitution(ctx.wizard.state.data.country, b.bankCode, b.accountNumber);
 
                 const possibleFields = ['account_name', 'accountName', 'name', 'holder_name', 'beneficiary_name'];
@@ -428,7 +428,7 @@ Choose your receiving bank:
 
 *Proceed with this transaction?*
 `;
-            await safeEdit(ctx, msg, Markup.inlineKeyboard([
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
                 [Markup.button.callback('🚀 Yes, Create Order', 'initiate')],
                 [Markup.button.callback('❌ Cancel', 'cancel')]
             ]));
@@ -440,7 +440,7 @@ Choose your receiving bank:
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         try {
-            await safeEdit(ctx, '⏳ <i>Creating secure wallet...</i>');
+            await ctx.replyWithHTML('⏳ <i>Creating secure wallet...</i>');
 
             const result = await switchService.initiateOfframp({
                 amount: ctx.wizard.state.data.amount,
@@ -475,14 +475,14 @@ Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 
 💡 <i>Your payment will be processed automatically after confirmation.</i>
 `;
-            await safeEdit(ctx, msg, Markup.inlineKeyboard([
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
                 [Markup.button.callback('📊 Track Status', `status_${result.reference}`)],
                 [Markup.button.callback('🏠 Main Menu', 'cancel')]
             ]));
             return ctx.scene.leave();
 
         } catch (error: any) {
-            await safeEdit(ctx, `❌ <b>Order Failed:</b> ${error.message}`, Markup.inlineKeyboard([
+            await ctx.replyWithHTML(`❌ <b>Order Failed:</b> ${error.message}`, Markup.inlineKeyboard([
                 [Markup.button.callback('🏠 Back to Menu', 'cancel')]
             ]));
             return ctx.scene.leave();
