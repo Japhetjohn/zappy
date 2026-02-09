@@ -3,6 +3,7 @@ import { switchService } from '../../services/switch';
 import { storageService } from '../../services/storage';
 import { Beneficiary } from '../../types';
 import { formatAmount, safeEdit, safeDelete, paginationKeyboard } from '../../utils';
+import { MAIN_KEYBOARD } from '../keyboards';
 
 const offrampWizard = new Scenes.WizardScene(
     'offramp-wizard',
@@ -524,10 +525,12 @@ Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 
 💡 <i>Your payment will be processed automatically after confirmation.</i>
 `;
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            const buttons = [
                 [Markup.button.callback('📊 Track Status', `status_${result.reference}`)],
-                [Markup.button.callback('🏠 Main Menu', 'cancel')]
-            ]));
+                ...MAIN_KEYBOARD.reply_markup.inline_keyboard
+            ];
+
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
             return ctx.scene.leave();
 
         } catch (error: any) {

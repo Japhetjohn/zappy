@@ -40,19 +40,7 @@ I'm here to make buying and selling crypto super easy, fast, and secure for you.
 <i>Ready to get started? Tap a button below!</i> 👇
 `;
 
-const MAIN_KEYBOARD = Markup.inlineKeyboard([
-    [
-        Markup.button.callback('💰 Buy Crypto', 'action_onramp'),
-        Markup.button.callback('💸 Sell Crypto', 'action_offramp')
-    ],
-    [
-        Markup.button.callback('📂 Saved Accounts', 'action_beneficiaries'),
-        Markup.button.callback('📊 Status', 'status')
-    ],
-    [
-        Markup.button.callback('❓ Help & Info', 'action_help')
-    ]
-]);
+import { MAIN_KEYBOARD } from './keyboards';
 
 // ═══════════════════════════════════════════════════════════
 // 🏠 START COMMAND
@@ -128,7 +116,7 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 • Get cash in your bank account instantly! 💸
 
 <b>Need human help?</b>
-Just contact my team at @ZappySupport and they'll sort you out! 🤝
+Just contact my team at <a href="https://t.me/Official_johny01">@Official_johny01</a> and they'll sort you out! 🤝
 `;
     await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]

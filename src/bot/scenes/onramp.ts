@@ -2,6 +2,7 @@ import { Scenes, Markup } from 'telegraf';
 import { switchService } from '../../services/switch';
 import { storageService } from '../../services/storage';
 import { formatAmount, safeEdit, safeDelete } from '../../utils';
+import { MAIN_KEYBOARD } from '../keyboards';
 
 const onrampWizard = new Scenes.WizardScene(
     'onramp-wizard',
@@ -336,18 +337,26 @@ Amount: <b>${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data
 
 💡 <i>Your crypto will be sent automatically after your transfer is confirmed.</i>
 `;
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
-                [Markup.button.callback('💳 I have paid', `confirm_${result.reference}`)],
-                [Markup.button.callback('🏠 Main Menu', 'cancel')]
-            ]));
-            return ctx.scene.leave();
+            import { MAIN_KEYBOARD } from '../keyboards';
+
+...
+
+            // ... (inside final step)
+            
+            const buttons = [
+    [Markup.button.callback('💳 I have paid', `confirm_${result.reference}`)],
+    ...MAIN_KEYBOARD.reply_markup.inline_keyboard
+];
+
+await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+return ctx.scene.leave();
 
         } catch (error: any) {
-            await ctx.replyWithHTML(`❌ <b>Order Failed:</b> ${error.message}`, Markup.inlineKeyboard([
-                [Markup.button.callback('🏠 Back to Menu', 'cancel')]
-            ]));
-            return ctx.scene.leave();
-        }
+    await ctx.replyWithHTML(`❌ <b>Order Failed:</b> ${error.message}`, Markup.inlineKeyboard([
+        [Markup.button.callback('🏠 Back to Menu', 'cancel')]
+    ]));
+    return ctx.scene.leave();
+}
     }
 );
 
