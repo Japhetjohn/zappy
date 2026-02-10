@@ -11,4 +11,5 @@ export const config = {
   },
   developerFee: Number(process.env.DEVELOPER_FEE) || 1,
   port: process.env.PORT || 3000,
+  baseUrl: process.env.BASE_URL,
 };

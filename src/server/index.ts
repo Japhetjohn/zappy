@@ -8,6 +8,15 @@ import { getExplorerLink } from '../utils'; // Import explorer utility
 const app = express();
 app.use(express.json());
 
+// 🩺 Health Check Endpoints
+app.get('/health', (req: Request, res: Response) => {
+    res.status(200).send({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.get('/', (req: Request, res: Response) => {
+    res.status(200).send('Bitnova Africa Bot Server is Running ⚡️');
+});
+
 app.post('/webhook', async (req: Request, res: Response) => {
     const payload = req.body;
     logger.info(`Incoming Webhook: ${JSON.stringify(payload)}`);
@@ -97,5 +106,18 @@ export function startServer() {
     const port = config.port;
     app.listen(port, () => {
         logger.info(`🌐 Webhook server listening on port ${port}`);
+
+        // 🚀 Self-Ping Mechanism (Prevents sleeping on render/railway/etc)
+        const selfUrl = config.baseUrl || `http://localhost:${port}`;
+
+        setInterval(async () => {
+            try {
+                const axios = require('axios');
+                await axios.get(`${selfUrl}/health`);
+                logger.debug(`💓 Heartbeat: Self-ping to ${selfUrl} successful`);
+            } catch (e: any) {
+                logger.warn(`💓 Heartbeat failed for ${selfUrl}: ${e.message}`);
+            }
+        }, 300000); // Every 5 minutes for higher reliability
     });
 }

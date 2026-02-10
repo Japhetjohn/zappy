@@ -22,6 +22,16 @@ export const bot = new Telegraf<BotContext>(config.botToken, {
 
 const stage = new Scenes.Stage<BotContext>([onrampWizard, offrampWizard]);
 bot.use(session());
+
+// 📝 Log All Updates
+bot.use((ctx, next) => {
+    const updateType = ctx.updateType;
+    const from = ctx.from?.id || 'unknown';
+    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+    logger.info(`Update: [${updateType}] from [${from}]${text ? ` text: ${text}` : ''}`);
+    return next();
+});
+
 bot.use(stage.middleware());
 
 // Visual Helpers
@@ -46,15 +56,23 @@ import { MAIN_KEYBOARD } from './keyboards';
 // 🏠 START COMMAND
 // ═══════════════════════════════════════════════════════════
 bot.command('start', async (ctx) => {
-    if (ctx.from) {
-        storageService.upsertUser(
-            ctx.from.id,
-            ctx.from.username || 'unknown',
-            `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim()
-        );
-    }
     const name = ctx.from?.first_name || 'Friend';
-    return ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
+    const msg = getWelcomeMsg(name);
+
+    // Attempt to register user in background
+    if (ctx.from) {
+        try {
+            storageService.upsertUser(
+                ctx.from.id,
+                ctx.from.username || 'unknown',
+                `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim()
+            );
+        } catch (err: any) {
+            logger.error(`Failed to register user ${ctx.from?.id}: ${err.message}`);
+        }
+    }
+
+    return ctx.replyWithHTML(msg, MAIN_KEYBOARD);
 });
 
 // 📊 ADMIN STATS COMMAND
