@@ -290,7 +290,8 @@ async function handleRates(ctx: any) {
 async function handleHistory(ctx: any) {
     if (!ctx.from) return;
     try {
-        const history = storageService.getTransactionHistory(ctx.from.id, 10, 0);
+        // Filter out PENDING/EXPIRED as per request - show only meaningful history
+        const history = storageService.getTransactionHistory(ctx.from.id, 10, 0, ['COMPLETED', 'FAILED', 'VERIFIED', 'RECEIVED', 'PROCESSING']);
         if (history.length === 0) {
             await ctx.replyWithHTML(`📭 <b>No transaction history found.</b>\n\nStart your first transaction by clicking Buy or Sell!`, Markup.inlineKeyboard([
                 [Markup.button.callback('🏠 Back to Menu', 'action_menu')]

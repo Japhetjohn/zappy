@@ -93,9 +93,21 @@ export const storageService = {
     return result.lastInsertRowid;
   },
 
-  getTransactionHistory: (userId: number, limit: number = 10, offset: number = 0) => {
-    const stmt = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?');
-    return stmt.all(userId, limit, offset) as any[];
+  getTransactionHistory: (userId: number, limit: number = 10, offset: number = 0, statusFilters?: string[]) => {
+    let sql = 'SELECT * FROM transactions WHERE user_id = ?';
+    const params: any[] = [userId];
+
+    if (statusFilters && statusFilters.length > 0) {
+      const placeholders = statusFilters.map(() => '?').join(',');
+      sql += ` AND status IN (${placeholders})`;
+      params.push(...statusFilters);
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const stmt = db.prepare(sql);
+    return stmt.all(...params) as any[];
   },
 
   addTransaction: (userId: number, reference: string, type: string, asset: string, amount: number) => {
