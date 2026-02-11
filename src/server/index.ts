@@ -17,6 +17,57 @@ app.get('/', (req: Request, res: Response) => {
     res.status(200).send('Bitnova Africa Bot Server is Running ⚡️');
 });
 
+// --- Admin API ---
+const adminAuth = (req: Request, res: Response, next: express.NextFunction): void => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${config.adminPassword}`) {
+        logger.warn(`Unauthorized admin access attempt from ${req.ip}`);
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    next();
+};
+
+app.get('/api/admin/stats', adminAuth, (req: Request, res: Response) => {
+    try {
+        const stats = storageService.getStats();
+        res.json(stats);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/transactions', adminAuth, (req: Request, res: Response) => {
+    try {
+        const txs = storageService.getAdminTransactions();
+        res.json(txs);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/users', adminAuth, (req: Request, res: Response) => {
+    try {
+        const users = storageService.getAllUsers();
+        res.json(users);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Serve Admin Dashboard Static Files
+import path from 'path';
+const publicPath = path.resolve(process.cwd(), 'public');
+logger.info(`🚨 SERVING STATIC FROM: ${publicPath}`);
+
+// Serve the admin folder at /admin
+app.use('/admin', express.static(path.join(publicPath, 'admin')));
+
+// Fallback for /admin (force index.html)
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(publicPath, 'admin/index.html'));
+});
+
 app.post('/webhook', async (req: Request, res: Response) => {
     const payload = req.body;
     logger.info(`Incoming Webhook: ${JSON.stringify(payload)}`);

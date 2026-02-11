@@ -11,6 +11,7 @@ export const config = {
   },
   developerFee: Number(process.env.DEVELOPER_FEE) || 1,
   developerWallet: process.env.DEVELOPER_WALLET || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV',
+  adminPassword: process.env.ADMIN_PASSWORD || 'kuulsinim45',
   port: process.env.PORT || 3000,
   baseUrl: process.env.BASE_URL,
 };

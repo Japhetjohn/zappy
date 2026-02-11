@@ -324,10 +324,10 @@ Select a transaction to see details:
 
         const buttons = history.map(tx => {
             const date = new Date(tx.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-            const typeEmoji = tx.type === 'ONRAMP' ? '💰' : '💸';
+            const typeLabel = tx.type === 'ONRAMP' ? 'BUY 💰' : 'SELL 💸';
             const statusEmoji = emojiMap[tx.status] || 'ℹ️';
             const assetName = tx.asset.split(':')[1]?.toUpperCase() || tx.asset.toUpperCase();
-            return [Markup.button.callback(`${statusEmoji} ${typeEmoji} ${tx.amount} ${assetName} • ${date}`, `status_${tx.reference}`)];
+            return [Markup.button.callback(`${statusEmoji} ${typeLabel} ${tx.amount} ${assetName} • ${date}`, `status_${tx.reference}`)];
         });
 
         buttons.push([Markup.button.callback('🏠 Back to Menu', 'action_menu')]);
@@ -357,7 +357,7 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 • Get cash in your bank account instantly! 💸
 
 <b>Need human help?</b>
-Just contact my team at <a href="https://t.me/Official_johny01">@Official_johny01</a> and they'll sort you out! 🤝
+Just join our community group at <a href="https://t.me/bitnova_africa">@bitnova_africa</a> and our team will sort you out! 🌍🤝
 `;
     await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]

@@ -20,7 +20,7 @@ echo "🚀 Starting deployment to $VPS_IP..."
 
 # 2. Package files (including source for remote build)
 echo "📦 Packaging files..."
-zip -r $ZIP_FILE src package.json tsconfig.json ecosystem.config.js .env bitnova.db -x "*.map"
+zip -r $ZIP_FILE src public package.json tsconfig.json ecosystem.config.js .env bitnova.db -x "*.map"
 
 # 3. Transfer via scp
 echo "📤 Transferring package to VPS..."

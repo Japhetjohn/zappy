@@ -291,6 +291,8 @@ ${userMessage}
 Type your <b>Bank Account Number</b> below:
 
 <i>Example: 0123456789</i>
+
+${saved.length > 0 ? '\n<b>Or choose from saved account below 👇</b>' : ''}
 `;
         const allButtons = [
             ...(ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber).slice(0, 3).map(b =>

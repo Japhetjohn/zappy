@@ -61,9 +61,11 @@ db.exec(`
 // Migration for existing tables
 try {
   db.prepare('ALTER TABLE transactions ADD COLUMN hash TEXT').run();
-} catch (e) {
-  // Column likely exists
-}
+} catch (e) { }
+
+try {
+  db.prepare('ALTER TABLE transactions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP').run();
+} catch (e) { }
 
 export const storageService = {
   getBeneficiaries: (userId: number): Beneficiary[] => {
