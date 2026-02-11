@@ -130,7 +130,7 @@ export const formatButtons21 = (buttons: any[]) => {
         // Pattern: 2, 1, 2, 1...
         // Row 0 (length 0): take 2
         // Row 1 (length 1): take 1
-        const take = (rows.length % 2 === 0) ? 2 : 1;
+        const take: number = (rows.length % 2 === 0) ? 2 : 1;
         rows.push(buttons.slice(i, i + take));
         i += take;
     }

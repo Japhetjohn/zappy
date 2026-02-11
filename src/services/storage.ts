@@ -76,21 +76,30 @@ export const storageService = {
     // Check for duplicate
     const check = db.prepare('SELECT id FROM beneficiaries WHERE user_id = ? AND bank_code = ? AND account_number = ?');
     const existing = check.get(beneficiary.userId, beneficiary.bankCode, beneficiary.accountNumber);
-    if (existing) return (existing as any).id;
+    if (existing) {
+      console.log(`[STORAGE] Duplicate beneficiary found for user ${beneficiary.userId}, skipping save.`);
+      return (existing as any).id;
+    }
 
     const stmt = db.prepare(`
       INSERT INTO beneficiaries (user_id, holder_name, bank_code, account_number, bank_name, wallet_address)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    const result = stmt.run(
-      beneficiary.userId,
-      beneficiary.holderName,
-      beneficiary.bankCode,
-      beneficiary.accountNumber,
-      beneficiary.bankName,
-      beneficiary.walletAddress || null
-    );
-    return result.lastInsertRowid;
+    try {
+      const result = stmt.run(
+        beneficiary.userId,
+        beneficiary.holderName,
+        beneficiary.bankCode,
+        beneficiary.accountNumber,
+        beneficiary.bankName,
+        beneficiary.walletAddress || null
+      );
+      console.log(`[STORAGE] Saved beneficiary for user ${beneficiary.userId}, ID: ${result.lastInsertRowid}`);
+      return result.lastInsertRowid;
+    } catch (e: any) {
+      console.error(`[STORAGE] Failed to save beneficiary: ${e.message}`);
+      throw e;
+    }
   },
 
   getTransactionHistory: (userId: number, limit: number = 10, offset: number = 0, statusFilters?: string[]) => {
