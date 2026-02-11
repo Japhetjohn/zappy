@@ -467,12 +467,6 @@ Choose your receiving bank:
                 Markup.button.callback('❌ Cancel', 'cancel')
             ];
 
-            // Only show save button if not already saved
-            const saved = storageService.getBeneficiaries(ctx.from.id);
-            const isSaved = saved.some(s => s.accountNumber === b.accountNumber && s.bankCode === b.bankCode);
-            if (!isSaved) {
-                allReviewButtons.unshift(Markup.button.callback('💾 Save this Account', 'save_account'));
-            }
 
             const buttons = formatButtons21(allReviewButtons);
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
@@ -486,30 +480,6 @@ Choose your receiving bank:
         if (!ctx.callbackQuery) return;
         const data = ctx.callbackQuery.data;
 
-        if (data === 'save_account') {
-            try {
-                const b = ctx.wizard.state.data.beneficiary;
-                storageService.addBeneficiary({
-                    userId: ctx.from.id,
-                    holderName: b.holderName,
-                    bankCode: b.bankCode,
-                    accountNumber: b.accountNumber,
-                    bankName: b.bankName
-                });
-                await ctx.answerCbQuery('✅ Account saved to your list!');
-
-                // Update the message to remove the save button
-                const msg = ctx.callbackQuery.message.text || '🏁 <b>Review Transfer</b>...';
-                await safeEdit(ctx, msg, Markup.inlineKeyboard([
-                    [Markup.button.callback('🚀 Yes, Create Order', 'initiate')],
-                    [Markup.button.callback('❌ Cancel', 'cancel')]
-                ]));
-                return;
-            } catch (e: any) {
-                await ctx.answerCbQuery('❌ Error saving account: ' + e.message);
-                return;
-            }
-        }
 
         if (data === 'cancel') return ctx.scene.leave();
         if (data !== 'initiate') return;
@@ -528,6 +498,19 @@ Choose your receiving bank:
                     holderName: ctx.wizard.state.data.beneficiary.holderName
                 }
             });
+
+            // Auto-save beneficiary
+            try {
+                storageService.addBeneficiary({
+                    userId: ctx.from.id,
+                    holderName: ctx.wizard.state.data.beneficiary.holderName,
+                    bankCode: ctx.wizard.state.data.beneficiary.bankCode,
+                    accountNumber: ctx.wizard.state.data.beneficiary.accountNumber,
+                    bankName: ctx.wizard.state.data.beneficiary.bankName
+                });
+            } catch (e) {
+                // Ignore save errors
+            }
 
             // Save transaction to local database
             storageService.addTransaction(

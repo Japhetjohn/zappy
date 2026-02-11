@@ -73,6 +73,11 @@ export const storageService = {
   },
 
   addBeneficiary: (beneficiary: Beneficiary) => {
+    // Check for duplicate
+    const check = db.prepare('SELECT id FROM beneficiaries WHERE user_id = ? AND bank_code = ? AND account_number = ?');
+    const existing = check.get(beneficiary.userId, beneficiary.bankCode, beneficiary.accountNumber);
+    if (existing) return (existing as any).id;
+
     const stmt = db.prepare(`
       INSERT INTO beneficiaries (user_id, holder_name, bank_code, account_number, bank_name, wallet_address)
       VALUES (?, ?, ?, ?, ?, ?)
