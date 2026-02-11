@@ -291,161 +291,18 @@ Paste your wallet address below:
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 7: Bank Account Entry
+    // Step 7: Review & Confirm (Was Step 9)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         if (ctx.callbackQuery) {
             const data = ctx.callbackQuery.data;
             if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
+
+            if (data === 'cancel') return ctx.scene.leave();
 
             if (data === 'back') {
-                ctx.wizard.selectStep(4); // Back to Quote review
-                return ctx.wizard.steps[4](ctx);
-            }
-            if (data === 'cancel') return ctx.scene.leave();
-            return;
-        }
-
-        const walletAddress = ctx.message?.text?.trim();
-        if (!walletAddress || walletAddress.length < 20) {
-            if (ctx.callbackQuery) await ctx.answerCbQuery('⚠️ Invalid wallet address').catch(() => { });
-            else if (!ctx.callbackQuery) await ctx.reply('⚠️ Please enter a valid wallet address');
-            return;
-        }
-        ctx.wizard.state.data.walletAddress = walletAddress;
-
-        const saved = ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber) : [];
-        ctx.wizard.state.savedBeneficiaries = saved;
-
-        const msg = `
-🏦 <b>Verify Identity</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Please enter your 10-digit <b>Bank Account Number</b> so we can verify the sender identity.
-
-(This helps us prevent fraud and ensure secure transactions)
-`;
-        const allButtons = [
-            ...(ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber).slice(0, 3).map(b =>
-                Markup.button.callback(`👤 ${b.holderName} (${b.bankName})`, `use_saved:${b.id}`)
-            ) : []),
-            Markup.button.callback('⬅️ Back', 'back_to_wallet'),
-            Markup.button.callback('❌ Cancel', 'cancel')
-        ];
-
-        const buttons = formatButtons21(allButtons);
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
-        return ctx.wizard.next();
-    },
-
-    // ═══════════════════════════════════════════════════════════
-    // Step 8: Bank Selection (Pagination)
-    // ═══════════════════════════════════════════════════════════
-    async (ctx: any) => {
-        if (ctx.callbackQuery) {
-            const data = ctx.callbackQuery.data;
-            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
-
-            if (data === 'cancel') return ctx.scene.leave();
-
-            if (data === 'back_to_wallet') {
-                ctx.wizard.selectStep(5); // Back to Wallet Address input (Step index 5 is step 6)
+                ctx.wizard.selectStep(5); // Back to Wallet Address
                 return ctx.wizard.steps[5](ctx);
-            }
-
-            if (data.startsWith('use_saved:')) {
-                const id = parseInt(data.replace('use_saved:', ''));
-                const selected = ctx.wizard.state.savedBeneficiaries.find((b: any) => b.id === id);
-                if (selected) {
-                    ctx.wizard.state.data.beneficiary = { ...selected };
-                    ctx.wizard.selectStep(8); // Jump to Verification & Confirmation
-                    return ctx.wizard.steps[8](ctx);
-                }
-            }
-
-            if (data.startsWith('page:')) {
-                const page = parseInt(data.split(':')[1]);
-                ctx.wizard.state.bankPage = page;
-                const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
-                await safeEdit(ctx, ctx.wizard.state.bankMsg, kb);
-                return;
-            }
-
-            if (data.startsWith('bank:')) {
-                const bankCode = data.split(':')[1];
-                const bank = ctx.wizard.state.banks.find((b: any) => b.code === bankCode || b.id?.toString() === bankCode);
-
-                if (bank) {
-                    ctx.wizard.state.data.beneficiary.bankCode = bank.code;
-                    ctx.wizard.state.data.beneficiary.bankName = bank.name;
-                    await ctx.replyWithHTML(`🏦 Selected: <b>${bank.name}</b>`);
-
-                    // Trigger lookup
-                    ctx.wizard.next();
-                    return ctx.wizard.steps[ctx.wizard.cursor](ctx);
-                }
-                return;
-            }
-
-            if (data === 'back_to_acc') {
-                ctx.wizard.selectStep(6); // Re-show Account Number Entry
-                return ctx.wizard.steps[6](ctx);
-            }
-        }
-
-        const accountNumber = ctx.message?.text?.trim();
-        if (accountNumber) {
-            if (!/^\d{10}$/.test(accountNumber)) {
-                await ctx.reply('⚠️ Please enter a valid 10-digit account number');
-                return;
-            }
-            ctx.wizard.state.data.beneficiary.accountNumber = accountNumber;
-        }
-
-        try {
-            if (!ctx.wizard.state.banks) {
-                const banks = await switchService.getInstitutions(ctx.wizard.state.data.country);
-                ctx.wizard.state.banks = sortBanksByPriority(banks);
-            }
-
-            const page = ctx.wizard.state.bankPage || 0;
-            const msg = `
-🏦 <b>Select Bank</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Account: <code>${ctx.wizard.state.data.beneficiary.accountNumber}</code>
-
-Choose your bank to verify:
-`;
-            ctx.wizard.state.bankMsg = msg;
-            const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
-            await ctx.replyWithHTML(msg, kb);
-            // Stay in this step to handle callbacks
-            return;
-        } catch (e) {
-            await ctx.replyWithHTML('❌ Failed to load banks. Type /cancel to restart.');
-        }
-    },
-
-    // ═══════════════════════════════════════════════════════════
-    // Step 9: Verification & Confirmation
-    // ═══════════════════════════════════════════════════════════
-    async (ctx: any) => {
-        if (ctx.callbackQuery) {
-            const data = ctx.callbackQuery.data;
-            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
-
-            if (data === 'cancel') return ctx.scene.leave();
-
-            if (data === 'change_bank') {
-                ctx.wizard.selectStep(7); // Back to Bank Selection
-                return ctx.wizard.steps[7](ctx);
-            }
-            if (data === 'change_account') {
-                ctx.wizard.selectStep(6); // Back to Account Entry
-                return ctx.wizard.steps[6](ctx);
             }
             if (data === 'initiate') {
                 ctx.wizard.next();
@@ -453,62 +310,33 @@ Choose your bank to verify:
             }
         }
 
-        const b = ctx.wizard.state.data.beneficiary;
-        if (!b.holderName && b.bankCode && b.accountNumber) {
-            try {
-                await ctx.replyWithHTML('⏳ <i>Verifying account...</i>');
-                const result = await switchService.lookupInstitution(ctx.wizard.state.data.country, b.bankCode, b.accountNumber);
-
-                const possibleFields = ['account_name', 'accountName', 'name', 'holder_name', 'beneficiary_name'];
-                let name = '';
-                for (const field of possibleFields) {
-                    if (result[field]) { name = result[field]; break; }
-                }
-                if (!name && result.beneficiary) {
-                    for (const field of possibleFields) {
-                        if (result.beneficiary[field]) { name = result.beneficiary[field]; break; }
-                    }
-                }
-
-                if (name) {
-                    ctx.wizard.state.data.beneficiary.holderName = name;
-                } else {
-                    throw new Error('Name not found');
-                }
-            } catch (error: any) {
-                const failButtons = formatButtons21([
-                    Markup.button.callback('🏦 Change Bank', 'change_bank'),
-                    Markup.button.callback('💳 Change Account', 'change_account'),
-                    Markup.button.callback('❌ Cancel', 'cancel')
-                ]);
-                await ctx.replyWithHTML(`❌ <b>Verification Failed</b>\n\nUnable to verify account details.`, Markup.inlineKeyboard(failButtons));
-                return;
-            }
-        }
-
-        if (b.holderName) {
-            const msg = `
-✅ <b>Identity Verified</b>
+        // Skip modification of message text if not a new message (to prevent errors)
+        const msg = `
+✅ <b>Confirm Order</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Name: <b>${b.holderName}</b>
-Bank: ${b.bankName}
-Account: ${b.accountNumber}
+💸 <b>Buying:</b> ${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.currency}
+💰 <b>Receiving:</b> ${formatAmount(ctx.wizard.state.quote.destination.amount)} ${ctx.wizard.state.data.symbol}
+
+📍 <b>Wallet Address:</b>
+<code>${ctx.wizard.state.data.walletAddress}</code>
+
+Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Is this correct?
 `;
-            const buttons = [
-                [Markup.button.callback('✅ Yes, Create Order', 'initiate')],
-                [Markup.button.callback('🔄 Change Details', 'change_account'), Markup.button.callback('❌ Cancel', 'cancel')]
-            ];
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
-            return;
-        }
+        const buttons = [
+            [Markup.button.callback('✅ Yes, Create Order', 'initiate')],
+            [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
+        ];
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 10: Order Creation
+    // Step 8: Order Creation (Was Step 10)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         if (ctx.callbackQuery) {
@@ -517,8 +345,6 @@ Is this correct?
         }
 
         const walletAddress = ctx.wizard.state.data.walletAddress;
-        // Use verified name
-        const verifiedName = ctx.wizard.state.data.beneficiary.holderName;
 
         try {
             const statusMsg = await ctx.replyWithHTML('⏳ <i>Creating order...</i>');
@@ -528,10 +354,8 @@ Is this correct?
                 country: ctx.wizard.state.data.country,
                 asset: ctx.wizard.state.data.asset.id,
                 walletAddress: walletAddress,
-                holderName: verifiedName, // Use verified name!
+                holderName: 'Crypto Buyer',
                 currency: ctx.wizard.state.data.currency,
-                senderBankCode: ctx.wizard.state.data.beneficiary.bankCode,
-                senderAccountNumber: ctx.wizard.state.data.beneficiary.accountNumber
             });
 
             // Save transaction to local database
@@ -542,19 +366,6 @@ Is this correct?
                 ctx.wizard.state.data.asset.id,
                 ctx.wizard.state.data.amount
             );
-
-            // Auto-save beneficiary for identity verification
-            try {
-                storageService.addBeneficiary({
-                    userId: ctx.from.id,
-                    holderName: ctx.wizard.state.data.beneficiary.holderName,
-                    bankCode: ctx.wizard.state.data.beneficiary.bankCode,
-                    accountNumber: ctx.wizard.state.data.beneficiary.accountNumber,
-                    bankName: ctx.wizard.state.data.beneficiary.bankName
-                });
-            } catch (e) {
-                // Ignore save errors
-            }
 
             const msg = `
 ✅ <b>Order Created!</b>
@@ -567,7 +378,7 @@ Is this correct?
 
 ⚠️ <b>Transfer Instructions:</b>
 
-Please make a transfer from <b>${verifiedName}</b> directly to the account below:
+Please make a transfer from <b>your bank account</b> directly to the account below:
 
 🏦 <b>Destination Bank:</b> ${result.deposit.bank_name}
 🔢 <b>Account Number:</b> <code>${result.deposit.account_number}</code>
