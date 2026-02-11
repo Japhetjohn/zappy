@@ -1,7 +1,7 @@
 import { Scenes, Markup } from 'telegraf';
 import { switchService } from '../../services/switch';
 import { storageService } from '../../services/storage';
-import { formatAmount, safeEdit, safeDelete, formatButtons21 } from '../../utils';
+import { formatAmount, safeEdit, safeDelete, formatButtons21, paginationKeyboard, sortBanksByPriority } from '../../utils';
 import { MAIN_KEYBOARD } from '../keyboards';
 
 const onrampWizard = new Scenes.WizardScene(
@@ -291,7 +291,7 @@ Paste your wallet address below:
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 7: Order Creation
+    // Step 7: Bank Account Entry
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         if (ctx.callbackQuery) {
@@ -299,7 +299,7 @@ Paste your wallet address below:
             if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
 
             if (data === 'back') {
-                ctx.wizard.selectStep(4); // Back to Quote review buttons screen
+                ctx.wizard.selectStep(4); // Back to Quote review
                 return ctx.wizard.steps[4](ctx);
             }
             if (data === 'cancel') return ctx.scene.leave();
@@ -307,14 +307,210 @@ Paste your wallet address below:
         }
 
         const walletAddress = ctx.message?.text?.trim();
-        // if (walletAddress) await safeDelete(ctx); // Stop deleting
 
         if (!walletAddress || walletAddress.length < 20) {
             if (ctx.callbackQuery) await ctx.answerCbQuery('⚠️ Invalid wallet address').catch(() => { });
+            else await ctx.reply('⚠️ Please enter a valid wallet address');
             return;
         }
 
         ctx.wizard.state.data.walletAddress = walletAddress;
+
+        // Initialize beneficiary structure for verification
+        if (!ctx.wizard.state.data.beneficiary) {
+            ctx.wizard.state.data.beneficiary = {
+                accountNumber: '',
+                bankCode: '',
+                bankName: '',
+                holderName: ''
+            };
+        }
+
+        const msg = `
+🏦 <b>Verify Identity</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Please enter your 10-digit <b>Bank Account Number</b> so we can verify the sender identity.
+
+(This helps us prevent fraud and ensure secure transactions)
+`;
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            [Markup.button.callback('⬅️ Back', 'back_to_wallet'), Markup.button.callback('❌ Cancel', 'cancel')]
+        ]));
+        return ctx.wizard.next();
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // Step 8: Bank Selection (Pagination)
+    // ═══════════════════════════════════════════════════════════
+    async (ctx: any) => {
+        if (ctx.callbackQuery) {
+            const data = ctx.callbackQuery.data;
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
+
+            if (data === 'cancel') return ctx.scene.leave();
+
+            if (data === 'back_to_wallet') {
+                ctx.wizard.selectStep(5); // Back to Wallet Address input (Step index 5 is step 6)
+                return ctx.wizard.steps[5](ctx);
+            }
+
+            if (data.startsWith('page:')) {
+                const page = parseInt(data.split(':')[1]);
+                ctx.wizard.state.bankPage = page;
+                const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
+                await safeEdit(ctx, ctx.wizard.state.bankMsg, kb);
+                return;
+            }
+
+            if (data.startsWith('bank:')) {
+                const bankCode = data.split(':')[1];
+                const bank = ctx.wizard.state.banks.find((b: any) => b.code === bankCode || b.id.toString() === bankCode);
+
+                if (bank) {
+                    ctx.wizard.state.data.beneficiary.bankCode = bank.code;
+                    ctx.wizard.state.data.beneficiary.bankName = bank.name;
+                    await ctx.replyWithHTML(`🏦 Selected: <b>${bank.name}</b>`);
+
+                    // Trigger lookup
+                    ctx.wizard.next();
+                    return ctx.wizard.steps[ctx.wizard.cursor](ctx);
+                }
+                return;
+            }
+
+            if (data === 'back_to_acc') {
+                ctx.wizard.selectStep(6); // Re-show Account Number Entry
+                return ctx.wizard.steps[6](ctx);
+            }
+        }
+
+        const accountNumber = ctx.message?.text?.trim();
+        if (accountNumber) {
+            if (!/^\d{10}$/.test(accountNumber)) {
+                await ctx.reply('⚠️ Please enter a valid 10-digit account number');
+                return;
+            }
+            ctx.wizard.state.data.beneficiary.accountNumber = accountNumber;
+        }
+
+        try {
+            if (!ctx.wizard.state.banks) {
+                const banks = await switchService.getInstitutions(ctx.wizard.state.data.country);
+                ctx.wizard.state.banks = sortBanksByPriority(banks);
+            }
+
+            const page = ctx.wizard.state.bankPage || 0;
+            const msg = `
+🏦 <b>Select Bank</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Account: <code>${ctx.wizard.state.data.beneficiary.accountNumber}</code>
+
+Choose your bank to verify:
+`;
+            ctx.wizard.state.bankMsg = msg;
+            const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
+            await ctx.replyWithHTML(msg, kb);
+            // Stay in this step to handle callbacks
+            return;
+        } catch (e) {
+            await ctx.replyWithHTML('❌ Failed to load banks. Type /cancel to restart.');
+        }
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // Step 9: Verification & Confirmation
+    // ═══════════════════════════════════════════════════════════
+    async (ctx: any) => {
+        if (ctx.callbackQuery) {
+            const data = ctx.callbackQuery.data;
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
+
+            if (data === 'cancel') return ctx.scene.leave();
+
+            if (data === 'change_bank') {
+                ctx.wizard.selectStep(7); // Back to Bank Selection
+                return ctx.wizard.steps[7](ctx);
+            }
+            if (data === 'change_account') {
+                ctx.wizard.selectStep(6); // Back to Account Entry
+                return ctx.wizard.steps[6](ctx);
+            }
+            if (data === 'initiate') {
+                ctx.wizard.next();
+                return ctx.wizard.steps[ctx.wizard.cursor](ctx);
+            }
+        }
+
+        const b = ctx.wizard.state.data.beneficiary;
+        if (!b.holderName && b.bankCode && b.accountNumber) {
+            try {
+                await ctx.replyWithHTML('⏳ <i>Verifying account...</i>');
+                const result = await switchService.lookupInstitution(ctx.wizard.state.data.country, b.bankCode, b.accountNumber);
+
+                const possibleFields = ['account_name', 'accountName', 'name', 'holder_name', 'beneficiary_name'];
+                let name = '';
+                for (const field of possibleFields) {
+                    if (result[field]) { name = result[field]; break; }
+                }
+                if (!name && result.beneficiary) {
+                    for (const field of possibleFields) {
+                        if (result.beneficiary[field]) { name = result.beneficiary[field]; break; }
+                    }
+                }
+
+                if (name) {
+                    ctx.wizard.state.data.beneficiary.holderName = name;
+                } else {
+                    throw new Error('Name not found');
+                }
+            } catch (error: any) {
+                const failButtons = formatButtons21([
+                    Markup.button.callback('🏦 Change Bank', 'change_bank'),
+                    Markup.button.callback('💳 Change Account', 'change_account'),
+                    Markup.button.callback('❌ Cancel', 'cancel')
+                ]);
+                await ctx.replyWithHTML(`❌ <b>Verification Failed</b>\n\nUnable to verify account details.`, Markup.inlineKeyboard(failButtons));
+                return;
+            }
+        }
+
+        if (b.holderName) {
+            const msg = `
+✅ <b>Identity Verified</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Name: <b>${b.holderName}</b>
+Bank: ${b.bankName}
+Account: ${b.accountNumber}
+
+Is this correct?
+`;
+            const buttons = [
+                [Markup.button.callback('✅ Yes, Create Order', 'initiate')],
+                [Markup.button.callback('🔄 Change Details', 'change_account'), Markup.button.callback('❌ Cancel', 'cancel')]
+            ];
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+            return;
+        }
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // Step 10: Order Creation
+    // ═══════════════════════════════════════════════════════════
+    async (ctx: any) => {
+        if (ctx.callbackQuery) {
+            if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
+            if (ctx.callbackQuery.data === 'cancel') return ctx.scene.leave();
+        }
+
+        const walletAddress = ctx.wizard.state.data.walletAddress;
+        // Use verified name
+        const verifiedName = ctx.wizard.state.data.beneficiary.holderName;
 
         try {
             const statusMsg = await ctx.replyWithHTML('⏳ <i>Creating order...</i>');
@@ -324,7 +520,7 @@ Paste your wallet address below:
                 country: ctx.wizard.state.data.country,
                 asset: ctx.wizard.state.data.asset.id,
                 walletAddress: walletAddress,
-                holderName: ctx.from?.first_name || ctx.from?.username || ctx.from?.id.toString(),
+                holderName: verifiedName, // Use verified name!
                 currency: ctx.wizard.state.data.currency
             });
 
@@ -333,7 +529,7 @@ Paste your wallet address below:
                 ctx.from.id,
                 result.reference,
                 'ONRAMP',
-                ctx.wizard.state.data.asset.id, // Store asset ID (e.g., 'ethereum:usdc') for network parsing
+                ctx.wizard.state.data.asset.id,
                 ctx.wizard.state.data.amount
             );
 

@@ -125,6 +125,11 @@ export class SwitchService {
         currency?: string;
     }): Promise<any> {
         try {
+            // Sanitize holder name: remove special characters and use safe default
+            const sanitizedName = data.holderName
+                ? data.holderName.replace(/[^a-zA-Z\s'-]/g, '').trim() || 'Crypto Buyer'
+                : 'Crypto Buyer';
+
             const response = await this.api.post('/onramp/initiate', {
                 amount: data.amount,
                 country: data.country,
@@ -133,7 +138,7 @@ export class SwitchService {
                 beneficiary: {
                     wallet_address: data.walletAddress,
                     holder_type: "INDIVIDUAL",
-                    holder_name: data.holderName
+                    holder_name: sanitizedName
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
