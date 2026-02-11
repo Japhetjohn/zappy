@@ -39,7 +39,7 @@ export const startScheduler = () => {
                             const depositAddress = status.deposit?.address;
                             if (depositAddress) {
                                 logger.info(`Scanning blockchain for ${tx.reference} (${depositAddress})...`);
-                                const hash = await blockchainService.getLastIncomingTx(depositAddress);
+                                const hash = await blockchainService.findIncomingTx(depositAddress);
 
                                 if (hash) {
                                     logger.info(`Found hash ${hash} for ${tx.reference}, confirming...`);

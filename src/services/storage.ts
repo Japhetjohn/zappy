@@ -189,11 +189,29 @@ export const storageService = {
     const successfulTxs = (db.prepare("SELECT COUNT(*) as count FROM transactions WHERE status = 'COMPLETED'").get() as any).count;
     const totalVolume = (db.prepare("SELECT SUM(amount) as sum FROM transactions WHERE status = 'COMPLETED'").get() as any).sum || 0;
 
+    // Profit is 0.1% of total volume
+    const totalProfit = totalVolume * 0.001;
+
     return {
       totalUsers,
       totalTransactions,
       successfulTxs,
-      totalVolume
+      totalVolume,
+      totalProfit
     };
+  },
+
+  getAdminTransactions: (limit: number = 50) => {
+    return db.prepare(`
+      SELECT t.*, u.username, u.full_name 
+      FROM transactions t
+      LEFT JOIN users u ON t.user_id = u.id
+      ORDER BY t.created_at DESC 
+      LIMIT ?
+    `).all(limit) as any[];
+  },
+
+  getAllUsers: () => {
+    return db.prepare('SELECT * FROM users ORDER BY last_seen DESC LIMIT 100').all() as any[];
   }
 };
