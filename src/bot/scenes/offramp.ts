@@ -228,7 +228,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${quote.destination.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> 0.9%
+⚡️ <b>Platform Fee:</b> 0.1%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

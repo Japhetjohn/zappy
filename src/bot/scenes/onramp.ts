@@ -219,7 +219,7 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${ctx.wizard.state.data.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> 0.9%
+⚡️ <b>Platform Fee:</b> 0.1%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
