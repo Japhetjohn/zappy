@@ -123,14 +123,16 @@ export class SwitchService {
         walletAddress: string;
         holderName?: string;
         currency?: string;
+        senderBankCode?: string;
+        senderAccountNumber?: string;
     }): Promise<any> {
         try {
-            // Sanitize holder name: remove special characters and use safe default
+            // Sanitize holder name...
             const sanitizedName = data.holderName
                 ? data.holderName.replace(/[^a-zA-Z\s'-]/g, '').trim() || 'Crypto Buyer'
                 : 'Crypto Buyer';
 
-            const response = await this.api.post('/onramp/initiate', {
+            const payload: any = {
                 amount: data.amount,
                 country: data.country,
                 currency: data.currency || 'NGN',
@@ -143,7 +145,18 @@ export class SwitchService {
                 channel: 'BANK',
                 reason: 'REMITTANCES',
                 developer_fee: config.developerFee,
-            });
+            };
+
+            // Pass sender details if available to help with reconciliation/VA generation
+            if (data.senderBankCode && data.senderAccountNumber) {
+                payload.sender = {
+                    bank_code: data.senderBankCode,
+                    account_number: data.senderAccountNumber,
+                    name: sanitizedName
+                };
+            }
+
+            const response = await this.api.post('/onramp/initiate', payload);
             if (response.data.success) {
                 return response.data.data;
             }

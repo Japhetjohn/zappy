@@ -521,7 +521,9 @@ Is this correct?
                 asset: ctx.wizard.state.data.asset.id,
                 walletAddress: walletAddress,
                 holderName: verifiedName, // Use verified name!
-                currency: ctx.wizard.state.data.currency
+                currency: ctx.wizard.state.data.currency,
+                senderBankCode: ctx.wizard.state.data.beneficiary.bankCode,
+                senderAccountNumber: ctx.wizard.state.data.beneficiary.accountNumber
             });
 
             // Save transaction to local database
@@ -542,12 +544,14 @@ Is this correct?
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🏦 <b>Make Payment:</b>
+⚠️ <b>Transfer Instructions:</b>
 
-Bank: <b>${result.deposit.bank_name}</b>
-Account: <code>${result.deposit.account_number}</code>
-Name: <b>${result.deposit.account_name}</b>
-Amount: <b>${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.currency}</b>
+Please make a transfer from <b>${verifiedName}</b> directly to the account below:
+
+🏦 <b>Destination Bank:</b> ${result.deposit.bank_name}
+🔢 <b>Account Number:</b> <code>${result.deposit.account_number}</code>
+👤 <b>Account Name:</b> <b>${result.deposit.account_name}</b>
+💰 <b>Amount:</b> <b>${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.currency}</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
