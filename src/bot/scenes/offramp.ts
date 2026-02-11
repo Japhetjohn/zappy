@@ -218,6 +218,9 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
             );
             ctx.wizard.state.quote = quote;
 
+            const settings = storageService.getSettings();
+            const platformFee = settings.platform_fee || '0.1';
+
             const msg = `
 📊 <b>Review Quote</b>
 
@@ -228,7 +231,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${quote.destination.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> 0.1%
+⚡️ <b>Platform Fee:</b> ${platformFee}%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

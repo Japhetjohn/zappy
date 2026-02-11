@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -52,6 +53,7 @@
             font-weight: 700;
             background: linear-gradient(to right, #fff, var(--accent));
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -94,7 +96,7 @@
         .stat-card:hover {
             transform: translateY(-5px);
             border-color: var(--accent);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
         .stat-card::after {
@@ -161,7 +163,7 @@
 
         td {
             padding: 20px 15px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             font-size: 0.95rem;
         }
 
@@ -173,22 +175,42 @@
             text-transform: uppercase;
         }
 
-        .status-completed { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-        .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--pending); }
-        .status-failed { background: rgba(239, 68, 68, 0.1); color: var(--failed); }
+        .status-completed {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .status-pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--pending);
+        }
+
+        .status-failed {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--failed);
+        }
 
         .user-info {
             display: flex;
             flex-direction: column;
         }
 
-        .username { font-weight: 600; }
-        .user-id { font-size: 0.8rem; color: var(--text-muted); }
+        .username {
+            font-weight: 600;
+        }
+
+        .user-id {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
 
         /* Auth Overlay */
         #auth-overlay {
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: var(--bg-dark);
             display: flex;
             flex-direction: column;
@@ -208,7 +230,9 @@
             text-align: center;
         }
 
-        .auth-card h3 { margin-bottom: 25px; }
+        .auth-card h3 {
+            margin-bottom: 25px;
+        }
 
         input {
             width: 100%;
@@ -223,7 +247,9 @@
             transition: 0.3s;
         }
 
-        input:focus { border-color: var(--accent); }
+        input:focus {
+            border-color: var(--accent);
+        }
 
         .login-btn {
             width: 100%;
@@ -237,20 +263,36 @@
             transition: 0.3s;
         }
 
-        .login-btn:hover { opacity: 0.9; transform: scale(0.98); }
-
-        .hidden { opacity: 0; pointer-events: none; }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        .login-btn:hover {
+            opacity: 0.9;
+            transform: scale(0.98);
         }
 
-        .loading-shimmer { animation: pulse 1.5s infinite; }
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
 
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .loading-shimmer {
+            animation: pulse 1.5s infinite;
+        }
     </style>
 </head>
+
 <body>
 
     <div id="auth-overlay">
@@ -258,7 +300,8 @@
             <h3>🔐 Admin Portal</h3>
             <input type="password" id="admin-pass" placeholder="Enter Admin Password">
             <button class="login-btn" onclick="authenticate()">Unlock Dashboard</button>
-            <p id="auth-error" style="color: var(--failed); margin-top: 15px; font-size: 0.9rem; display: none;">Invalid Password</p>
+            <p id="auth-error" style="color: var(--failed); margin-top: 15px; font-size: 0.9rem; display: none;">Invalid
+                Password</p>
         </div>
     </div>
 
@@ -282,9 +325,42 @@
                 <div class="stat-sub" style="color: var(--accent)">Processed securely</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Estimated Profit</div>
-                <div class="stat-value" id="stat-profit">$0.00</div>
-                <div class="stat-sub">Generated from fees (0.1%)</div>
+                <div class="stat-label">System Fee</div>
+                <div class="stat-value" id="stat-fee">0.1%</div>
+                <div class="stat-sub" style="color: var(--success)" id="stat-profit">Profit: $0.00</div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 40px;">
+            <div class="table-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>User Performance</h2>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>TX Count</th>
+                            <th>Total Volume</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-body">
+                        <!-- User stats injected here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-container">
+                <h2>Platform Settings</h2>
+                <div
+                    style="background: var(--glass); padding: 20px; border-radius: 16px; border: 1px solid var(--border);">
+                    <label
+                        style="display: block; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-muted);">DEVELOPER
+                        FEE (%)</label>
+                    <input type="number" id="fee-input" step="0.01" style="margin-bottom: 15px;">
+                    <button class="login-btn" onclick="saveFee()">Save Fee %</button>
+                    <p id="save-msg" style="margin-top: 10px; font-size: 0.8rem; text-align: center;"></p>
+                </div>
             </div>
         </div>
 
@@ -319,48 +395,76 @@
 
         async function fetchData(isInitial = false) {
             try {
-                const response = await fetch('/api/admin/stats', {
-                    headers: { 'Authorization': `Bearer ${adminKey}` }
-                });
+                const headers = { 'Authorization': `Bearer ${adminKey}` };
 
-                if (response.status === 401) {
-                    if(!isInitial) alert('Session expired or invalid key');
+                // 1. Fetch Basic Stats
+                const statsRes = await fetch('/api/admin/stats', { headers });
+                if (statsRes.status === 401) {
+                    if (!isInitial) alert('Session expired or invalid key');
                     document.getElementById('auth-error').style.display = 'block';
                     return;
                 }
+                const stats = await statsRes.json();
 
-                const stats = await response.json();
-                
-                // Update Stats
-                document.getElementById('stat-users').innerText = stats.totalUsers || 0;
-                document.getElementById('stat-volume').innerText = `$${Number(stats.totalVolume || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-                document.getElementById('stat-profit').innerText = `$${Number(stats.totalProfit || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+                // 2. Fetch Users
+                const usersRes = await fetch('/api/admin/users', { headers });
+                const users = await usersRes.json();
 
-                // Fetch Transactions
-                const txRes = await fetch('/api/admin/transactions', {
-                    headers: { 'Authorization': `Bearer ${adminKey}` }
-                });
+                // 3. Fetch Settings
+                const settingsRes = await fetch('/api/admin/settings', { headers });
+                const settings = await settingsRes.json();
+
+                // 4. Fetch Transactions
+                const txRes = await fetch('/api/admin/transactions', { headers });
                 const txs = await txRes.json();
-                renderTransactions(txs);
+
+                updateUI(stats, users, settings, txs);
 
                 if (isInitial) {
                     document.getElementById('auth-overlay').classList.add('hidden');
                 }
             } catch (err) {
                 console.error(err);
-                if(isInitial) document.getElementById('auth-error').style.display = 'block';
+                if (isInitial) document.getElementById('auth-error').style.display = 'block';
             }
         }
 
-        function renderTransactions(txs) {
-            const body = document.getElementById('tx-body');
-            body.innerHTML = '';
+        function updateUI(stats, users, settings, txs) {
+            // Stats
+            document.getElementById('stat-users').innerText = stats.totalUsers || 0;
+            document.getElementById('stat-volume').innerText = `$${Number(stats.totalVolume || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+            document.getElementById('stat-profit').innerText = `Profit: $${Number(stats.totalProfit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
+            const currentFee = settings.platform_fee || '0.1';
+            document.getElementById('stat-fee').innerText = `${currentFee}%`;
+            document.getElementById('fee-input').value = currentFee;
+
+            // Users Table
+            const userBody = document.getElementById('user-body');
+            userBody.innerHTML = '';
+            users.forEach(u => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div class="user-info">
+                            <span class="username">${u.full_name || u.username || 'User'}</span>
+                            <span class="user-id">@${u.username || u.id}</span>
+                        </div>
+                    </td>
+                    <td>${u.tx_count}</td>
+                    <td><b>$${Number(u.total_volume || 0).toLocaleString()}</b></td>
+                `;
+                userBody.appendChild(row);
+            });
+
+            // Transactions Table
+            const txBody = document.getElementById('tx-body');
+            txBody.innerHTML = '';
             txs.forEach(tx => {
                 const row = document.createElement('tr');
                 const time = new Date(tx.created_at).toLocaleString();
                 const statusClass = `status-${tx.status.toLowerCase()}`;
-                
+
                 row.innerHTML = `
                     <td>
                         <div class="user-info">
@@ -374,9 +478,39 @@
                     <td><span class="status-badge ${statusClass}">${tx.status}</span></td>
                     <td>${time}</td>
                 `;
-                body.appendChild(row);
+                txBody.appendChild(row);
             });
+        }
+
+        async function saveFee() {
+            const fee = document.getElementById('fee-input').value;
+            const msg = document.getElementById('save-msg');
+            msg.style.color = 'var(--accent)';
+            msg.innerText = 'Saving...';
+
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${adminKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ key: 'platform_fee', value: fee })
+                });
+
+                if (res.ok) {
+                    msg.style.color = 'var(--success)';
+                    msg.innerText = 'Platform fee updated successfully!';
+                    setTimeout(() => fetchData(), 1000);
+                } else {
+                    throw new Error('Failed to save');
+                }
+            } catch (e) {
+                msg.style.color = 'var(--failed)';
+                msg.innerText = 'Error saving setting';
+            }
         }
     </script>
 </body>
+
 </html>

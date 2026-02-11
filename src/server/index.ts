@@ -48,8 +48,28 @@ app.get('/api/admin/transactions', adminAuth, (req: Request, res: Response) => {
 
 app.get('/api/admin/users', adminAuth, (req: Request, res: Response) => {
     try {
-        const users = storageService.getAllUsers();
+        const users = storageService.getUserProcessingStats();
         res.json(users);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
+    try {
+        const settings = storageService.getSettings();
+        res.json(settings);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
+    try {
+        const { key, value } = req.body;
+        if (!key || value === undefined) throw new Error('Key and value required');
+        storageService.updateSetting(key, value.toString());
+        res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -60,11 +80,11 @@ import path from 'path';
 const publicPath = path.resolve(process.cwd(), 'public');
 logger.info(`🚨 SERVING STATIC FROM: ${publicPath}`);
 
-// Serve the admin folder at /admin
+// Serve the admin folder at /admin and /admin/
 app.use('/admin', express.static(path.join(publicPath, 'admin')));
 
-// Fallback for /admin (force index.html)
-app.get('/admin', (req, res) => {
+// Ultimate fallback for /admin paths to handle front-end routing if any
+app.get(['/admin', '/admin/*'], (req, res) => {
     res.sendFile(path.join(publicPath, 'admin/index.html'));
 });
 

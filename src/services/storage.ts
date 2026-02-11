@@ -58,13 +58,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 `);
 
-// Migration for existing tables
-try {
-  db.prepare('ALTER TABLE transactions ADD COLUMN hash TEXT').run();
-} catch (e) { }
-
 try {
   db.prepare('ALTER TABLE transactions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP').run();
+} catch (e) { }
+
+// Settings Table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )
+`);
+
+// Initialize default fee if not exists
+try {
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('platform_fee', '0.1')").run();
 } catch (e) { }
 
 export const storageService = {
@@ -213,7 +221,30 @@ export const storageService = {
     `).all(limit) as any[];
   },
 
-  getAllUsers: () => {
-    return db.prepare('SELECT * FROM users ORDER BY last_seen DESC LIMIT 100').all() as any[];
-  }
+  getSettings: () => {
+    const rows = db.prepare('SELECT * FROM settings').all() as any[];
+    const settings: Record<string, string> = {};
+    rows.forEach(r => settings[r.key] = r.value);
+    return settings;
+  },
+
+  updateSetting: (key: string, value: string) => {
+    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  },
+
+  getUserProcessingStats: () => {
+    return db.prepare(`
+      SELECT 
+        u.id, 
+        u.username, 
+        u.full_name,
+        COUNT(t.id) as tx_count,
+        SUM(CASE WHEN t.status = 'COMPLETED' THEN t.amount ELSE 0 END) as total_volume
+      FROM users u
+      LEFT JOIN transactions t ON u.id = t.user_id
+      GROUP BY u.id
+      HAVING tx_count > 0
+      ORDER BY total_volume DESC
+    `).all() as any[];
+  },
 };
