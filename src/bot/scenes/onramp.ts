@@ -307,24 +307,15 @@ Paste your wallet address below:
         }
 
         const walletAddress = ctx.message?.text?.trim();
-
         if (!walletAddress || walletAddress.length < 20) {
             if (ctx.callbackQuery) await ctx.answerCbQuery('⚠️ Invalid wallet address').catch(() => { });
-            else await ctx.reply('⚠️ Please enter a valid wallet address');
+            else if (!ctx.callbackQuery) await ctx.reply('⚠️ Please enter a valid wallet address');
             return;
         }
-
         ctx.wizard.state.data.walletAddress = walletAddress;
 
-        // Initialize beneficiary structure for verification
-        if (!ctx.wizard.state.data.beneficiary) {
-            ctx.wizard.state.data.beneficiary = {
-                accountNumber: '',
-                bankCode: '',
-                bankName: '',
-                holderName: ''
-            };
-        }
+        const saved = ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber) : [];
+        ctx.wizard.state.savedBeneficiaries = saved;
 
         const msg = `
 🏦 <b>Verify Identity</b>
@@ -335,9 +326,16 @@ Please enter your 10-digit <b>Bank Account Number</b> so we can verify the sende
 
 (This helps us prevent fraud and ensure secure transactions)
 `;
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
-            [Markup.button.callback('⬅️ Back', 'back_to_wallet'), Markup.button.callback('❌ Cancel', 'cancel')]
-        ]));
+        const allButtons = [
+            ...(ctx.from ? storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber).slice(0, 3).map(b =>
+                Markup.button.callback(`👤 ${b.holderName} (${b.bankName})`, `use_saved:${b.id}`)
+            ) : []),
+            Markup.button.callback('⬅️ Back', 'back_to_wallet'),
+            Markup.button.callback('❌ Cancel', 'cancel')
+        ];
+
+        const buttons = formatButtons21(allButtons);
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     },
 
@@ -354,6 +352,16 @@ Please enter your 10-digit <b>Bank Account Number</b> so we can verify the sende
             if (data === 'back_to_wallet') {
                 ctx.wizard.selectStep(5); // Back to Wallet Address input (Step index 5 is step 6)
                 return ctx.wizard.steps[5](ctx);
+            }
+
+            if (data.startsWith('use_saved:')) {
+                const id = parseInt(data.replace('use_saved:', ''));
+                const selected = ctx.wizard.state.savedBeneficiaries.find((b: any) => b.id === id);
+                if (selected) {
+                    ctx.wizard.state.data.beneficiary = { ...selected };
+                    ctx.wizard.selectStep(8); // Jump to Verification & Confirmation
+                    return ctx.wizard.steps[8](ctx);
+                }
             }
 
             if (data.startsWith('page:')) {
@@ -534,6 +542,19 @@ Is this correct?
                 ctx.wizard.state.data.asset.id,
                 ctx.wizard.state.data.amount
             );
+
+            // Auto-save beneficiary for identity verification
+            try {
+                storageService.addBeneficiary({
+                    userId: ctx.from.id,
+                    holderName: ctx.wizard.state.data.beneficiary.holderName,
+                    bankCode: ctx.wizard.state.data.beneficiary.bankCode,
+                    accountNumber: ctx.wizard.state.data.beneficiary.accountNumber,
+                    bankName: ctx.wizard.state.data.beneficiary.bankName
+                });
+            } catch (e) {
+                // Ignore save errors
+            }
 
             const msg = `
 ✅ <b>Order Created!</b>
