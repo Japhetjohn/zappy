@@ -366,7 +366,7 @@ Please enter your 10-digit <b>Bank Account Number</b> so we can verify the sende
 
             if (data.startsWith('bank:')) {
                 const bankCode = data.split(':')[1];
-                const bank = ctx.wizard.state.banks.find((b: any) => b.code === bankCode || b.id.toString() === bankCode);
+                const bank = ctx.wizard.state.banks.find((b: any) => b.code === bankCode || b.id?.toString() === bankCode);
 
                 if (bank) {
                     ctx.wizard.state.data.beneficiary.bankCode = bank.code;
