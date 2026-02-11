@@ -163,16 +163,26 @@ bot.action(/^status_(.+)$/, async (ctx) => {
             storageService.updateTransactionStatus(reference, status.status);
         }
 
-        const msg = formatStatusMessage(status);
+        // Fetch latest tx data (including hash if webhook arrived)
+        const updatedTx = storageService.getTransaction(reference);
+        const hash = updatedTx?.hash || '';
+
+        const msg = formatStatusMessage(status, hash);
+
+        const redoAction = transaction?.type === 'OFFRAMP' ? 'action_offramp' : 'action_onramp';
+
         await safeEdit(ctx, msg, Markup.inlineKeyboard([
-            [Markup.button.callback('🔄 Refresh', `status_${reference}`)],
-            [Markup.button.callback('📜 Back to History', 'action_history')],
+            [Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
+            [Markup.button.callback('🔁 Redo Transaction', redoAction)],
             [Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));
     } catch (e) {
-        await ctx.replyWithHTML('❌ Could not fetch transaction details.');
+        // User requested "Keep user mind at rest"
+        await ctx.replyWithHTML('⏳ <b>Transaction Processing...</b>\n\nPlease wait a moment while we update the status from the network.');
     }
 });
+
+
 
 bot.action(/^confirm_(.+)$/, async (ctx) => {
     const reference = ctx.match[1];
@@ -195,7 +205,7 @@ bot.action('cancel', async (ctx) => {
     await safeEdit(ctx, getWelcomeMsg(name), MAIN_KEYBOARD);
 });
 
-function formatStatusMessage(status: any) {
+function formatStatusMessage(status: any, hash?: string) {
     const emojiMap: Record<string, string> = {
         'PENDING': '⏳', 'PROCESSING': '⚙️', 'COMPLETED': '✅', 'FAILED': '❌', 'EXPIRED': '⏰', 'RECEIVED': '📥', 'VERIFIED': '✨'
     };
@@ -211,6 +221,8 @@ ${emoji} <b>Transaction Status</b>
 
 💰 <b>You Sent/Requested:</b> ${formatAmount(status.source.amount)} ${status.source.currency}
 💵 <b>Estimated Payout:</b> ${formatAmount(status.destination.amount)} ${status.destination.currency}
+
+${hash ? `🔗 <b>Transaction Hash:</b>\n<code>${hash}</code>` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

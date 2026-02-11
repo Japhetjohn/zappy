@@ -34,8 +34,10 @@ app.post('/webhook', async (req: Request, res: Response) => {
             return res.status(404).send({ success: false, message: 'Transaction not found' });
         }
 
+        const txHash = payload.hash || payload.txHash || payload.transactionHash || payload.tx_hash;
+
         // Update database status
-        storageService.updateTransactionStatus(reference, status);
+        storageService.updateTransactionStatus(reference, status, txHash);
 
         // Notify user
         const userId = transaction.user_id; // Note: Database column is user_id
@@ -64,7 +66,6 @@ app.post('/webhook', async (req: Request, res: Response) => {
         }
 
         // Generate Explorer Link
-        const txHash = payload.hash || payload.txHash || payload.transactionHash || payload.tx_hash;
         const explorerLink = txHash ? getExplorerLink(transaction.asset, txHash) : '';
 
         const notifyMsg = `
@@ -102,10 +103,15 @@ ${explorerLink ? `🔗 <b>Blockchain Hash:</b>\n<a href="${explorerLink}">${txHa
     }
 });
 
+import { startScheduler } from '../services/scheduler';
+
 export function startServer() {
     const port = config.port;
     app.listen(port, () => {
         logger.info(`🌐 Webhook server listening on port ${port}`);
+
+        // Start background tasks
+        startScheduler();
 
         // 🚀 Self-Ping Mechanism (Prevents sleeping on render/railway/etc)
         const selfUrl = config.baseUrl || `http://localhost:${port}`;

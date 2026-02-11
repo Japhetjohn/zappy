@@ -50,12 +50,20 @@ db.exec(`
     amount REAL,
     status TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    hash TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_ref ON transactions(reference);
   CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 `);
+
+// Migration for existing tables
+try {
+  db.prepare('ALTER TABLE transactions ADD COLUMN hash TEXT').run();
+} catch (e) {
+  // Column likely exists
+}
 
 export const storageService = {
   getBeneficiaries: (userId: number): Beneficiary[] => {
@@ -132,9 +140,20 @@ export const storageService = {
     return result;
   },
 
-  updateTransactionStatus: (reference: string, status: string) => {
-    const stmt = db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ?');
-    const result = stmt.run(status, reference);
+  updateTransactionStatus: (reference: string, status: string, hash?: string) => {
+    let sql = 'UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP';
+    const params: any[] = [status];
+
+    if (hash) {
+      sql += ', hash = ?';
+      params.push(hash);
+    }
+
+    sql += ' WHERE reference = ?';
+    params.push(reference);
+
+    const stmt = db.prepare(sql);
+    const result = stmt.run(...params);
 
     // If completed, update user total volume
     if (status === 'COMPLETED') {

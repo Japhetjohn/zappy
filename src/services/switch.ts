@@ -265,9 +265,12 @@ export class SwitchService {
         }
     }
 
-    async confirmDeposit(reference: string): Promise<any> {
+    async confirmDeposit(reference: string, hash?: string): Promise<any> {
         try {
-            const response = await this.api.post('/confirm', { reference });
+            const payload: any = { reference };
+            if (hash) payload.hash = hash;
+
+            const response = await this.api.post('/confirm', payload);
             if (response.data.success) {
                 return response.data.data;
             }

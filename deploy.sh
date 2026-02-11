@@ -34,15 +34,21 @@ SSHPASS="$VPS_PASS" sshpass -e ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_I
     cd $REMOTE_PATH
     unzip -o $ZIP_FILE
     rm $ZIP_FILE
-    npm install --omit=dev --no-audit --no-fund
+    rm -rf node_modules
+    npm install --no-audit --no-fund
     npm run build
+    if [ $? -ne 0 ]; then
+        echo "❌ Build failed! Aborting deployment."
+        exit 1
+    fi
+
     mkdir -p logs
     # Safeguard: Ensure no orphaned processes are clinging to the bot token
     echo "🧹 Cleaning up potential conflicts..."
-    ps aux | grep 'bitnova-bot' | grep -v grep | awk '{print \$2}' | xargs kill -9 > /dev/null 2>&1 || true
+    ps aux | grep 'bitnova-bot' | grep -v grep | awk '{print $2}' | xargs kill -9 > /dev/null 2>&1 || true
 
     pm2 describe bitnova-bot > /dev/null 2>&1
-    if [ \$? -eq 0 ]; then
+    if [ $? -eq 0 ]; then
         echo "🔄 Reloading existing PM2 process..."
         pm2 reload ecosystem.config.js --env production
     else
@@ -50,6 +56,7 @@ SSHPASS="$VPS_PASS" sshpass -e ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_I
         pm2 start ecosystem.config.js --env production
     fi
     pm2 save
+    echo "✨ Deployment successful!"
 EOF
 
 echo "✨ Deployment successful!"
