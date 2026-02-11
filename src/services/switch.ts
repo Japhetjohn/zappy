@@ -145,6 +145,8 @@ export class SwitchService {
                 channel: 'BANK',
                 reason: 'REMITTANCES',
                 developer_fee: config.developerFee,
+                // Add developer wallet for fee collection (Solana/Single-Wallet mode)
+                developer_wallet: config.developerWallet || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV',
             };
 
             // Pass sender details if available to help with reconciliation/VA generation
@@ -152,7 +154,8 @@ export class SwitchService {
                 payload.sender = {
                     bank_code: data.senderBankCode,
                     account_number: data.senderAccountNumber,
-                    name: sanitizedName
+                    name: sanitizedName,
+                    country: data.country, // Add country to sender details
                 };
             }
 
@@ -213,6 +216,7 @@ export class SwitchService {
                 channel: 'BANK',
                 reason: 'REMITTANCES',
                 developer_fee: config.developerFee,
+                developer_wallet: config.developerWallet
             });
             if (response.data.success) {
                 return response.data.data;

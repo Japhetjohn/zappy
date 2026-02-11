@@ -10,6 +10,7 @@ export const config = {
     webhookSecret: process.env.SWITCH_WEBHOOK_SECRET!,
   },
   developerFee: Number(process.env.DEVELOPER_FEE) || 1,
+  developerWallet: process.env.DEVELOPER_WALLET || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV',
   port: process.env.PORT || 3000,
   baseUrl: process.env.BASE_URL,
 };
