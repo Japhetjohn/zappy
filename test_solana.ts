@@ -3,15 +3,15 @@ import axios from 'axios';
 
 const RPC_URL = 'https://api.mainnet-beta.solana.com';
 
-async function getSignatures(address: string) {
+async function getTransaction(signature: string) {
     try {
         const response = await axios.post(RPC_URL, {
             jsonrpc: '2.0',
             id: 1,
-            method: 'getSignaturesForAddress',
+            method: 'getTransaction',
             params: [
-                address,
-                { limit: 5 }
+                signature,
+                { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }
             ]
         });
         return response.data;
@@ -21,20 +21,37 @@ async function getSignatures(address: string) {
     }
 }
 
-const addresses = [
-    '62THii8EncuZM6bHYfkHwh78iYYpwxBkzdLYMXkn7QDn',
-    'CTs5qW6giAJkpACtwgYAAgs5b8dFY1EXaDEBZ9ncLsqr'
+const txs = [
+    '5hUiqRAZPzsrVYVek1CY4iYX1WXSmzgmBURoGoBtHKCaQrEtE1UcThBVhYTHYnoNXC2AqhDrMbQyvbjMDt27uJSL',
+    'kMb76oc1wYbyntah3Nj8vz51KrpRVB9He7yy6eD5YgsNGvGePA93AYbKZkhPgmK8vzG4BkcRuNmiQTvvugkqKih'
 ];
 
 (async () => {
-    for (const addr of addresses) {
-        console.log(`Scanning ${addr}...`);
-        const res = await getSignatures(addr);
+    for (const tx of txs) {
+        console.log(`Checking tx ${tx}...`);
+        const res = await getTransaction(tx);
         if (res && res.result) {
-            console.log(`Found ${res.result.length} txs:`);
-            res.result.forEach((tx: any) => {
-                console.log(`- Hash: ${tx.signature}, Time: ${tx.blockTime}`);
-            });
+            const meta = res.result.meta;
+            const preBalances = meta.preTokenBalances;
+            const postBalances = meta.postTokenBalances;
+
+            console.log(`--- Tx Analysis for ${tx.substr(0, 10)} ---`);
+
+            // Simple check: Look for balance change in USDC mint
+            // USDC Mint: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+
+            if (postBalances && preBalances) {
+                postBalances.forEach((post: any) => {
+                    const pre = preBalances.find((p: any) => p.accountIndex === post.accountIndex);
+                    if (pre && post.mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
+                        const change = post.uiTokenAmount.uiAmount - pre.uiTokenAmount.uiAmount;
+                        if (change > 0) {
+                            console.log(`Received: ${change} USDC to Account index ${post.accountIndex}`);
+                        }
+                    }
+                });
+            }
+
         } else {
             console.log('No result or error', res);
         }
