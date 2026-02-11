@@ -232,12 +232,22 @@ ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.cur
             return ctx.wizard.next();
 
         } catch (error: any) {
-            let errorMsg = error.message;
-            if (errorMsg.includes('Maximum amount')) {
-                errorMsg = `⚠️ <b>Limit Exceeded</b>\n\nThe maximum amount allowed per transaction is <b>10,000 ${ctx.wizard.state.data.symbol}</b>. Please enter a smaller amount.`;
+            // Make error messages user-friendly
+            let userMessage = error.message;
+
+            if (userMessage.includes('Minimum amount')) {
+                userMessage = `⚠️ The minimum purchase is <b>1 ${ctx.wizard.state.data.symbol}</b>.\n\nPlease enter a larger amount.`;
+            } else if (userMessage.includes('Maximum amount')) {
+                userMessage = `⚠️ This amount exceeds the maximum limit.\n\nPlease enter a smaller amount.`;
             } else {
-                errorMsg = `❌ <b>Error:</b> ${errorMsg}`;
+                userMessage = `⚠️ Unable to process this amount right now.\n\n<i>${userMessage}</i>`;
             }
+
+            const errorMsg = `
+❌ <b>Quote Error</b>
+
+${userMessage}
+            `;
 
             await ctx.replyWithHTML(errorMsg, Markup.inlineKeyboard([
                 [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
@@ -357,8 +367,19 @@ Amount: <b>${formatAmount(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data
             return ctx.scene.leave();
 
         } catch (error: any) {
-            await ctx.replyWithHTML(`❌ <b>Order Failed:</b> ${error.message}`, Markup.inlineKeyboard([
-                [Markup.button.callback('🏠 Back to Menu', 'cancel')]
+            // Make error messages user-friendly
+            let userMessage = error.message;
+
+            if (userMessage.includes('Name can only contain')) {
+                userMessage = `⚠️ <b>Invalid Wallet Address</b>\n\nThe address you entered appears to be invalid for the <b>${ctx.wizard.state.data.asset.blockchain.name}</b> network.\n\nPlease double-check and try again.`;
+            } else if (userMessage.includes('Invalid wallet address')) {
+                userMessage = `⚠️ <b>Invalid Wallet Address</b>\n\nPlease enter a valid <b>${ctx.wizard.state.data.symbol}</b> wallet address.`;
+            } else {
+                userMessage = `⚠️ <b>Unable to Create Order</b>\n\n<i>${userMessage}</i>\n\nPlease try again or contact support.`;
+            }
+
+            await ctx.replyWithHTML(`❌ ${userMessage}`, Markup.inlineKeyboard([
+                [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('🏠 Main Menu', 'cancel')]
             ]));
             return ctx.scene.leave();
         }

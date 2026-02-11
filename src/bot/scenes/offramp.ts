@@ -241,12 +241,22 @@ ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.cur
             return ctx.wizard.next();
 
         } catch (error: any) {
-            let errorMsg = error.message;
-            if (errorMsg.includes('Maximum amount')) {
-                errorMsg = `⚠️ <b>Limit Exceeded</b>\n\nThe maximum amount allowed per transaction is <b>10,000 ${ctx.wizard.state.data.symbol}</b>. Please enter a smaller amount.`;
+            // Make error messages user-friendly
+            let userMessage = error.message;
+
+            if (userMessage.includes('Minimum amount')) {
+                userMessage = `⚠️ The minimum sale is <b>1 ${ctx.wizard.state.data.symbol}</b>.\n\nPlease enter a larger amount.`;
+            } else if (userMessage.includes('Maximum amount')) {
+                userMessage = `⚠️ This amount exceeds the maximum limit.\n\nPlease enter a smaller amount.`;
             } else {
-                errorMsg = `❌ <b>Error:</b> ${errorMsg}`;
+                userMessage = `⚠️ Unable to process this amount right now.\n\n<i>${userMessage}</i>`;
             }
+
+            const errorMsg = `
+❌ <b>Quote Error</b>
+
+${userMessage}
+            `;
 
             await ctx.replyWithHTML(errorMsg, Markup.inlineKeyboard([
                 [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
