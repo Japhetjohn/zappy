@@ -366,13 +366,14 @@ Is this correct?
             });
 
             // Save transaction to local database
-            storageService.addTransaction(
-                ctx.from.id,
-                result.reference,
-                'ONRAMP',
-                ctx.wizard.state.data.asset.id,
-                ctx.wizard.state.data.amount
-            );
+            storageService.addTransaction({
+                userId: ctx.from.id,
+                reference: result.reference,
+                type: 'ONRAMP',
+                asset: ctx.wizard.state.data.asset.id,
+                amount: ctx.wizard.state.data.amount,
+                currency: ctx.wizard.state.data.currency
+            });
 
             const msg = `
 ✅ <b>Order Created!</b>

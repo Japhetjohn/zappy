@@ -522,13 +522,14 @@ Choose your receiving bank:
             }
 
             // Save transaction to local database
-            storageService.addTransaction(
-                ctx.from.id,
-                result.reference,
-                'OFFRAMP',
-                ctx.wizard.state.data.asset.id, // Store asset ID (e.g., 'ethereum:usdc') for network parsing
-                ctx.wizard.state.data.amount
-            );
+            storageService.addTransaction({
+                userId: ctx.from.id,
+                reference: result.reference,
+                type: 'OFFRAMP',
+                asset: ctx.wizard.state.data.asset.id,
+                amount: ctx.wizard.state.data.amount,
+                currency: ctx.wizard.state.data.currency
+            });
 
             const msg = `
 ✅ <b>Order Created!</b>

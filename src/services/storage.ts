@@ -48,10 +48,11 @@ db.exec(`
     type TEXT,
     asset TEXT,
     amount REAL,
+    currency TEXT DEFAULT 'USD',
     status TEXT,
+    hash TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    hash TEXT
+    updated_at DATETIME
   );
   CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_ref ON transactions(reference);
@@ -137,15 +138,23 @@ export const storageService = {
     return stmt.all(...params) as any[];
   },
 
-  addTransaction: (userId: number, reference: string, type: string, asset: string, amount: number) => {
+  addTransaction: (data: {
+    userId: number;
+    reference: string;
+    type: 'ONRAMP' | 'OFFRAMP';
+    asset: string;
+    amount: number;
+    currency?: string;
+    status?: string;
+  }) => {
     const stmt = db.prepare(`
-      INSERT INTO transactions (user_id, reference, type, asset, amount, status)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    const result = stmt.run(userId, reference, type, asset, amount, 'PENDING');
+    const result = stmt.run(data.userId, data.reference, data.type, data.asset, data.amount, data.currency || 'USD', data.status || 'PENDING');
 
     // Increment user's tx count (on a transaction basis)
-    db.prepare('UPDATE users SET tx_count = tx_count + 1, last_seen = CURRENT_TIMESTAMP WHERE id = ?').run(userId);
+    db.prepare('UPDATE users SET tx_count = tx_count + 1, last_seen = CURRENT_TIMESTAMP WHERE id = ?').run(data.userId);
 
     return result;
   },
@@ -197,18 +206,31 @@ export const storageService = {
     const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as any).count;
     const allTransactions = (db.prepare('SELECT COUNT(*) as count FROM transactions').get() as any).count;
     const completedTransactions = (db.prepare("SELECT COUNT(*) as count FROM transactions WHERE status = 'COMPLETED'").get() as any).count;
-    const totalVolume = (db.prepare("SELECT SUM(amount) as sum FROM transactions WHERE status = 'COMPLETED'").get() as any).sum || 0;
+
+    // Fetch all completed transaction amounts and currencies
+    const txs = db.prepare("SELECT amount, currency FROM transactions WHERE status = 'COMPLETED'").all() as any[];
+
+    // Convert everything to USD for the 'Total Volume' stat (Approximate conversion: 1 USD = 1500 NGN)
+    // In a real-world app, you'd fetch live rates, but for logic consistency we normalize here.
+    let totalVolumeUSD = 0;
+    txs.forEach(tx => {
+      if (tx.currency === 'NGN') {
+        totalVolumeUSD += tx.amount / 1500;
+      } else {
+        totalVolumeUSD += tx.amount;
+      }
+    });
 
     // Profit based on dynamic fee
     const feeRow = db.prepare("SELECT value FROM settings WHERE key = 'platform_fee'").get() as any;
     const feePercent = feeRow ? parseFloat(feeRow.value) : 0.1;
-    const totalEarned = (totalVolume * feePercent) / 100;
+    const totalEarned = (totalVolumeUSD * feePercent) / 100;
 
     return {
       totalUsers,
       allTransactions,
       completedTransactions,
-      totalVolume,
+      totalVolume: totalVolumeUSD,
       totalEarned,
       platformFee: feePercent
     };

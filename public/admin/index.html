@@ -120,6 +120,8 @@
             flex-direction: column;
             position: fixed;
             height: 100vh;
+            z-index: 1001;
+            transition: transform 0.3s ease;
         }
 
         .logo-box {
@@ -130,6 +132,27 @@
             font-weight: 700;
             margin-bottom: 60px;
             padding-left: 15px;
+        }
+
+        .mobile-header {
+            display: none;
+            background: var(--sidebar-bg);
+            color: white;
+            padding: 15px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .hamburger {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 5px;
         }
 
         nav ul {
@@ -422,15 +445,54 @@
             display: none !important;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
+        /* --- Responsive Styles --- */
+        @media (max-width: 1024px) {
+            aside {
+                transform: translateX(-100%);
             }
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
+            aside.active {
+                transform: translateX(0);
+            }
+
+            main {
+                margin-left: 0;
+                padding: 20px;
+            }
+
+            .mobile-header {
+                display: flex;
+            }
+
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .header-title h1 {
+                font-size: 24px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+
+            .auth-card {
+                padding: 30px 20px;
+            }
+
+            .user-details-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .table-card {
+                padding: 15px;
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 600px;
             }
         }
     </style>
@@ -454,8 +516,19 @@
         </div>
     </div>
 
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+        <div class="logo-box" style="margin-bottom: 0; padding-left: 0;">
+            <i data-lucide="zap"></i>
+            <span style="font-size: 18px;">Bitnova</span>
+        </div>
+        <button class="hamburger" onclick="toggleSidebar()">
+            <i data-lucide="menu"></i>
+        </button>
+    </div>
+
     <!-- Sidebar -->
-    <aside>
+    <aside id="main-sidebar">
         <div class="logo-box">
             <i data-lucide="zap"></i>
             <span>Bitnova Admin</span>
@@ -542,6 +615,35 @@
                         </tr>
                     </thead>
                     <tbody id="tx-summary-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Transactions Content -->
+        <div id="section-transactions" class="view-content">
+            <header>
+                <div class="header-title">
+                    <h1>Transaction History</h1>
+                    <p>Complete record of all platform trades.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="refresh-btn" onclick="fetchData()"><i data-lucide="rotate-cw"></i></button>
+                </div>
+            </header>
+
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Reference</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-tx-body"></tbody>
                 </table>
             </div>
         </div>
@@ -692,10 +794,14 @@
                 document.getElementById('stat-total-txs').innerText = stats.allTransactions;
                 document.getElementById('stat-completed-txs').innerText = stats.completedTransactions;
 
+                // Sync all transactions list
+                renderAllTransactions(txs);
+
                 // 2. Transactions
                 const txRes = await fetch('/api/admin/transactions', { headers });
                 const txs = await txRes.json();
                 renderTxSummary(txs);
+                renderAllTransactions(txs);
 
                 // 3. Users
                 const usersRes = await fetch('/api/admin/users', { headers });
@@ -726,9 +832,29 @@
                         </div>
                     </td>
                     <td><b>${tx.type}</b></td>
-                    <td><b>$${tx.amount}</b></td>
+                    <td><b>${(tx.currency === 'NGN' ? '₦' : '$')}${Number(tx.amount).toLocaleString()}</b></td>
                     <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
                     <td>${new Date(tx.created_at).toLocaleDateString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAllTransactions(txs) {
+            const body = document.getElementById('all-tx-body');
+            if (!body) return;
+            body.innerHTML = txs.map(tx => `
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <div class="avatar">${(tx.username || 'A').charAt(0)}</div>
+                            <b>@${tx.username || 'User'}</b>
+                        </div>
+                    </td>
+                    <td><code>${tx.reference.substring(0, 12)}...</code></td>
+                    <td><b>${tx.type}</b></td>
+                    <td><b>${(tx.currency === 'NGN' ? '₦' : '$')}${Number(tx.amount).toLocaleString()}</b></td>
+                    <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
+                    <td>${new Date(tx.created_at).toLocaleString()}</td>
                 </tr>
             `).join('');
         }
@@ -778,7 +904,7 @@
                     <tr>
                         <td><code>${tx.reference.substring(0, 8)}...</code></td>
                         <td><b>${tx.type}</b></td>
-                        <td>$${tx.amount}</td>
+                        <td>${(tx.currency === 'NGN' ? '₦' : '$')}${Number(tx.amount).toLocaleString()}</td>
                         <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
                         <td>${new Date(tx.created_at).toLocaleString()}</td>
                     </tr>
@@ -835,6 +961,15 @@
             document.querySelectorAll('nav li').forEach(l => l.classList.remove('active'));
             const navItem = document.getElementById(`nav-${id}`);
             if (navItem) navItem.classList.add('active');
+
+            // Auto-close sidebar on mobile after selection
+            if (window.innerWidth <= 1024) {
+                document.getElementById('main-sidebar').classList.remove('active');
+            }
+        }
+
+        function toggleSidebar() {
+            document.getElementById('main-sidebar').classList.toggle('active');
         }
 
         function logout() {
