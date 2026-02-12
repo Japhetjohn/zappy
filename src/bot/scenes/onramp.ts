@@ -297,7 +297,7 @@ Paste your wallet address below:
     },
 
     // ═══════════════════════════════════════════════════════════
-    // Step 7: Review & Confirm (Was Step 9)
+    // Step 7: Review & Confirm (Capture Wallet Address & Show Confirmation)
     // ═══════════════════════════════════════════════════════════
     async (ctx: any) => {
         if (ctx.callbackQuery) {
@@ -307,16 +307,32 @@ Paste your wallet address below:
             if (data === 'cancel') return ctx.scene.leave();
 
             if (data === 'back') {
-                ctx.wizard.selectStep(5); // Back to Wallet Address
+                ctx.wizard.selectStep(5); // Back to Wallet Address prompt
                 return ctx.wizard.steps[5](ctx);
             }
             if (data === 'initiate') {
                 ctx.wizard.next();
                 return ctx.wizard.steps[ctx.wizard.cursor](ctx);
             }
+            return; // Ignore other callbacks
         }
 
-        // Skip modification of message text if not a new message (to prevent errors)
+        // Capture wallet address from text message
+        const text = ctx.message?.text;
+        if (!text) {
+            return ctx.reply('⚠️ Please enter a valid wallet address.');
+        }
+
+        // Basic validation - check if it looks like an address
+        const trimmedAddress = text.trim();
+        if (trimmedAddress.length < 20) {
+            return ctx.reply('⚠️ That doesn\'t look like a valid wallet address. Please try again.');
+        }
+
+        // Store the wallet address
+        ctx.wizard.state.data.walletAddress = trimmedAddress;
+
+        // Show confirmation screen
         const msg = `
 ✅ <b>Confirm Order</b>
 

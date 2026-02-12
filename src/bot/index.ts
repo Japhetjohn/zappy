@@ -56,23 +56,33 @@ import { MAIN_KEYBOARD } from './keyboards';
 // 🏠 START COMMAND
 // ═══════════════════════════════════════════════════════════
 bot.command('start', async (ctx) => {
-    const name = ctx.from?.first_name || 'Friend';
-    const msg = getWelcomeMsg(name);
+    try {
+        const name = ctx.from?.first_name || 'Friend';
+        const msg = getWelcomeMsg(name);
 
-    // Attempt to register user in background
-    if (ctx.from) {
+        // Attempt to register user in background
+        if (ctx.from) {
+            try {
+                storageService.upsertUser(
+                    ctx.from.id,
+                    ctx.from.username || 'unknown',
+                    `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim()
+                );
+            } catch (err: any) {
+                logger.error(`Failed to register user ${ctx.from?.id}: ${err.message}`);
+            }
+        }
+
+        await ctx.replyWithHTML(msg, MAIN_KEYBOARD);
+    } catch (err: any) {
+        logger.error(`Error in /start command: ${err.message}`);
+        logger.error(err.stack);
         try {
-            storageService.upsertUser(
-                ctx.from.id,
-                ctx.from.username || 'unknown',
-                `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim()
-            );
-        } catch (err: any) {
-            logger.error(`Failed to register user ${ctx.from?.id}: ${err.message}`);
+            await ctx.reply('⚠️ Something went wrong. Please try again.');
+        } catch (e) {
+            logger.error('Failed to send error message to user');
         }
     }
-
-    return ctx.replyWithHTML(msg, MAIN_KEYBOARD);
 });
 
 // 📊 ADMIN STATS COMMAND
@@ -237,10 +247,14 @@ ${hash ? `🔗 <b>Transaction Hash:</b>\n<code>${hash}</code>` : ''}
 // ═══════════════════════════════════════════════════════════
 
 // Trigger Welcome/Menu: hi, hello, home, menu, etc.
-bot.hears(/\b(hi|hello|hey|yo|start|menu|home|start)\b/i, async (ctx) => {
-    if (ctx.scene.current) return; // Don't interrupt active wizards
-    const name = ctx.from?.first_name || 'Friend';
-    return ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
+bot.hears(/\b(hi|hello|hey|yo|start|menu|home)\b/i, async (ctx) => {
+    try {
+        if (ctx.scene.current) return; // Don't interrupt active wizards
+        const name = ctx.from?.first_name || 'Friend';
+        await ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
+    } catch (err: any) {
+        logger.error(`Error in hears handler: ${err.message}`);
+    }
 });
 
 // Trigger Buy: buy, send, onramp, deposit
@@ -444,3 +458,15 @@ const handleShutdown = (signal: string) => {
 
 process.once('SIGINT', () => handleShutdown('SIGINT'));
 process.once('SIGTERM', () => handleShutdown('SIGTERM'));
+
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (err) => {
+    logger.error('❌ UNCAUGHT EXCEPTION:');
+    logger.error(err.message);
+    logger.error(err.stack || '');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('❌ UNHANDLED REJECTION:');
+    logger.error(reason);
+});
