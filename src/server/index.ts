@@ -138,16 +138,19 @@ app.post('/webhook', async (req: Request, res: Response) => {
         // Update database status
         storageService.updateTransactionStatus(reference, status, txHash);
 
-        // Notify user via shared service
-        await notificationService.sendUpdate(
-            transaction.user_id,
-            reference,
-            status,
-            transaction.asset,
-            transaction.amount,
-            txHash,
-            message
-        );
+        // Notify user via shared service - only for critical updates
+        const notifiableStatuses = ['VERIFIED', 'COMPLETED', 'FAILED', 'EXPIRED'];
+        if (notifiableStatuses.includes(status)) {
+            await notificationService.sendUpdate(
+                transaction.user_id,
+                reference,
+                status,
+                transaction.asset,
+                transaction.amount,
+                txHash,
+                message
+            );
+        }
 
         return res.send({ success: true });
     } catch (error: any) {

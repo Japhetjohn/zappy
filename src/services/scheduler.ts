@@ -22,7 +22,7 @@ export const startScheduler = () => {
         try {
             // Find PENDING transactions
             const rows = db.prepare(`
-                SELECT reference, created_at, type, user_id, asset, amount FROM transactions 
+                SELECT reference, status, created_at, type, user_id, asset, amount FROM transactions 
                 WHERE status IN ('PENDING', 'AWAITING_DEPOSIT', 'PROCESSING', 'VERIFIED')
                 AND created_at < datetime('now', '-1 minutes')
                 AND created_at > datetime('now', '-24 hours')
@@ -61,15 +61,19 @@ export const startScheduler = () => {
                             storageService.updateTransactionStatus(tx.reference, status.status);
                             logger.info(`Updated status for ${tx.reference} -> ${status.status}`);
 
-                            // Send notification
-                            await notificationService.sendUpdate(
-                                tx.user_id,
-                                tx.reference,
-                                status.status,
-                                tx.asset,
-                                tx.amount,
-                                status.txHash || status.hash || status.transactionHash
-                            );
+                            // Only notify on critical status changes to avoid spam
+                            // VERIFIED (Confirmed), COMPLETED (Success), FAILED/EXPIRED (Failure)
+                            const notifiableStatuses = ['VERIFIED', 'COMPLETED', 'FAILED', 'EXPIRED'];
+                            if (notifiableStatuses.includes(status.status)) {
+                                await notificationService.sendUpdate(
+                                    tx.user_id,
+                                    tx.reference,
+                                    status.status,
+                                    tx.asset,
+                                    tx.amount,
+                                    status.txHash || status.hash || status.transactionHash
+                                );
+                            }
                         }
                     } catch (e: any) {
                         logger.error(`❌ Failed to recover ${tx.reference}: ${e.message}`);
