@@ -77,7 +77,7 @@ bot.command('start', async (ctx) => {
 
 // 📊 ADMIN STATS COMMAND
 bot.command('stats', async (ctx) => {
-    const stats = storageService.getStats();
+    const stats = storageService.getStats() as any;
     const msg = `
 📊 <b>Bitnova Africa Platform Stats</b>
 
@@ -86,7 +86,9 @@ bot.command('stats', async (ctx) => {
 👥 <b>Total Users:</b> ${stats.totalUsers.toLocaleString()}
 📝 <b>Total Transactions:</b> ${stats.allTransactions.toLocaleString()}
 ✅ <b>Successful Transfers:</b> ${stats.completedTransactions.toLocaleString()}
-💰 <b>Total Volume:</b> $${stats.totalVolume.toLocaleString()}
+
+💰 <b>Volume USD:</b> $${Number(stats.totalVolumeUSD).toLocaleString()}
+💰 <b>Volume NGN:</b> ₦${Number(stats.totalVolumeNGN).toLocaleString()}
 
 <i>Scale: Ready for 20k+ users/day</i> 🌍⚡️
 `;

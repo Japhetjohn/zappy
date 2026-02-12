@@ -202,37 +202,37 @@ export const storageService = {
   },
 
   // 📊 PLATFORM ANALYTICS HANDLER
-  getStats: () => {
+  getStats: (rate: number = 1500) => {
     const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as any).count;
     const allTransactions = (db.prepare('SELECT COUNT(*) as count FROM transactions').get() as any).count;
     const completedTransactions = (db.prepare("SELECT COUNT(*) as count FROM transactions WHERE status = 'COMPLETED'").get() as any).count;
 
-    // Fetch all completed transaction amounts and currencies
-    const txs = db.prepare("SELECT amount, currency FROM transactions WHERE status = 'COMPLETED'").all() as any[];
+    // Calculate raw volumes
+    const volUSD_Raw = (db.prepare("SELECT SUM(amount) as sum FROM transactions WHERE status = 'COMPLETED' AND currency = 'USD'").get() as any).sum || 0;
+    const volNGN_Raw = (db.prepare("SELECT SUM(amount) as sum FROM transactions WHERE status = 'COMPLETED' AND currency = 'NGN'").get() as any).sum || 0;
 
-    // Convert everything to USD for the 'Total Volume' stat (Approximate conversion: 1 USD = 1500 NGN)
-    // In a real-world app, you'd fetch live rates, but for logic consistency we normalize here.
-    let totalVolumeUSD = 0;
-    txs.forEach(tx => {
-      if (tx.currency === 'NGN') {
-        totalVolumeUSD += tx.amount / 1500;
-      } else {
-        totalVolumeUSD += tx.amount;
-      }
-    });
+    // Combined Totals (Summing both currencies)
+    const combinedVolumeUSD = volUSD_Raw + (volNGN_Raw / rate);
+    const combinedVolumeNGN = volNGN_Raw + (volUSD_Raw * rate);
 
     // Profit based on dynamic fee
     const feeRow = db.prepare("SELECT value FROM settings WHERE key = 'platform_fee'").get() as any;
     const feePercent = feeRow ? parseFloat(feeRow.value) : 0.1;
-    const totalEarned = (totalVolumeUSD * feePercent) / 100;
+
+    const earnedUSD = (combinedVolumeUSD * feePercent) / 100;
+    const earnedNGN = (combinedVolumeNGN * feePercent) / 100;
 
     return {
       totalUsers,
       allTransactions,
       completedTransactions,
-      totalVolume: totalVolumeUSD,
-      totalEarned,
-      platformFee: feePercent
+      // Global Totals
+      totalVolumeUSD: combinedVolumeUSD,
+      totalVolumeNGN: combinedVolumeNGN,
+      totalEarnedUSD: earnedUSD,
+      totalEarnedNGN: earnedNGN,
+      platformFee: feePercent,
+      currentRate: rate
     };
   },
 
@@ -257,46 +257,68 @@ export const storageService = {
     db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
   },
 
-  getUserProcessingStats: () => {
-    return db.prepare(`
+  getUserProcessingStats: (rate: number = 1500) => {
+    const users = db.prepare(`
       SELECT 
         u.id, 
         u.username, 
         u.full_name,
         u.created_at,
         u.last_seen,
-        COUNT(t.id) as tx_count,
-        SUM(CASE WHEN t.status = 'COMPLETED' THEN t.amount ELSE 0 END) as total_volume
+        u.tx_count
       FROM users u
-      LEFT JOIN transactions t ON u.id = t.user_id
-      GROUP BY u.id
-      ORDER BY total_volume DESC, tx_count DESC, u.id ASC
+      ORDER BY u.tx_count DESC, u.id ASC
     `).all() as any[];
+
+    // Calculate currency-aware volume for each user manually to support dynamic combined total
+    return users.map(u => {
+      const txs = db.prepare("SELECT amount, currency FROM transactions WHERE user_id = ? AND status = 'COMPLETED'").all(u.id) as any[];
+      let volUSD = 0;
+      let volNGN = 0;
+      txs.forEach(t => {
+        if (t.currency === 'NGN') volNGN += t.amount;
+        else volUSD += t.amount;
+      });
+      return {
+        ...u,
+        total_volume: volUSD + (volNGN / rate),
+        total_volume_ngn: volNGN + (volUSD * rate)
+      };
+    }).sort((a, b) => b.total_volume - a.total_volume);
   },
 
-  getUserDetailStats: (userId: number) => {
-    const stats = db.prepare(`
+  getUserDetailStats: (userId: number, rate: number = 1500) => {
+    const statsResult = db.prepare(`
       SELECT 
         COUNT(*) as total_tx,
         SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as success_tx,
-        SUM(CASE WHEN status IN ('FAILED', 'EXPIRED') THEN 1 ELSE 0 END) as failed_tx,
-        SUM(CASE WHEN status = 'COMPLETED' THEN amount ELSE 0 END) as volume
+        SUM(CASE WHEN status IN ('FAILED', 'EXPIRED') THEN 1 ELSE 0 END) as failed_tx
       FROM transactions 
       WHERE user_id = ?
     `).get(userId) as any;
+
+    const txs = db.prepare("SELECT amount, currency FROM transactions WHERE user_id = ? AND status = 'COMPLETED'").all(userId) as any[];
+    let volUSD = 0;
+    let volNGN = 0;
+    txs.forEach(t => {
+      if (t.currency === 'NGN') volNGN += t.amount;
+      else volUSD += t.amount;
+    });
 
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
 
     return {
       user,
       stats: {
-        total: stats.total_tx || 0,
-        success: stats.success_tx || 0,
-        failed: stats.failed_tx || 0,
-        volume: stats.volume || 0
+        total: statsResult.total_tx || 0,
+        success: statsResult.success_tx || 0,
+        failed: statsResult.failed_tx || 0,
+        volume: volUSD + (volNGN / rate),
+        volume_ngn: volNGN + (volUSD * rate)
       }
     };
-  },
+  }
+  ,
 
   getUserTransactions: (userId: number, limit: number = 20) => {
     return db.prepare(`

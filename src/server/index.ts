@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { bot } from '../bot';
 import { storageService } from '../services/storage';
+import { switchService } from '../services/switch';
+import { notificationService } from '../services/notification';
 import { config } from '../config';
 import logger from '../utils/logger';
 import { getExplorerLink } from '../utils'; // Import explorer utility
@@ -28,9 +30,11 @@ const adminAuth = (req: Request, res: Response, next: express.NextFunction): voi
     next();
 };
 
-app.get('/api/admin/stats', adminAuth, (req: Request, res: Response) => {
+app.get('/api/admin/stats', adminAuth, async (req: Request, res: Response) => {
     try {
-        const stats = storageService.getStats();
+        const rates = await switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
+        const rate = (rates.buy + rates.sell) / 2 || 1500;
+        const stats = storageService.getStats(rate);
         res.json(stats);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -46,19 +50,23 @@ app.get('/api/admin/transactions', adminAuth, (req: Request, res: Response) => {
     }
 });
 
-app.get('/api/admin/users', adminAuth, (req: Request, res: Response) => {
+app.get('/api/admin/users', adminAuth, async (req: Request, res: Response) => {
     try {
-        const users = storageService.getUserProcessingStats();
+        const rates = await switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
+        const rate = (rates.buy + rates.sell) / 2 || 1500;
+        const users = storageService.getUserProcessingStats(rate);
         res.json(users);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
 });
 
-app.get('/api/admin/users/:id/details', adminAuth, (req: Request, res: Response) => {
+app.get('/api/admin/users/:id/details', adminAuth, async (req: Request, res: Response) => {
     try {
         const userId = parseInt(req.params.id as string);
-        const details = storageService.getUserDetailStats(userId);
+        const rates = await switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
+        const rate = (rates.buy + rates.sell) / 2 || 1500;
+        const details = storageService.getUserDetailStats(userId, rate);
         res.json(details);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -130,62 +138,16 @@ app.post('/webhook', async (req: Request, res: Response) => {
         // Update database status
         storageService.updateTransactionStatus(reference, status, txHash);
 
-        // Notify user
-        const userId = transaction.user_id; // Note: Database column is user_id
-        const emojiMap: Record<string, string> = {
-            'RECEIVED': '📥',
-            'PROCESSING': '⚙️',
-            'COMPLETED': '✅',
-            'FAILED': '❌',
-            'EXPIRED': '⏰',
-            'VERIFIED': 'zp_verified' // Custom placeholder if needed, or use generic
-        };
-        const emoji = emojiMap[status] || 'ℹ️';
-
-        let statusText = status;
-        let additionalInfo = '';
-
-        if (status === 'VERIFIED') {
-            statusText = '✨ Verified';
-            additionalInfo = 'Your payment has been verified and is being processed.';
-        } else if (status === 'PROCESSING') {
-            statusText = '⚙️ Processing';
-            additionalInfo = 'We are sending your funds to the destination.';
-        } else if (status === 'COMPLETED') {
-            statusText = '✅ Completed';
-            additionalInfo = 'Transaction successfully finished!';
-        }
-
-        // Generate Explorer Link
-        const explorerLink = txHash ? getExplorerLink(transaction.asset, txHash) : '';
-
-        const notifyMsg = `
-${emoji} <b>Transaction Update</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📋 <b>Ref:</b> <code>${reference}</code>
-🚦 <b>Status:</b> <b>${statusText}</b>
-${message ? `💬 <b>Note:</b> ${message}` : ''}
-${additionalInfo ? `ℹ️ ${additionalInfo}` : ''}
-
-💰 <b>Amount:</b> ${transaction.amount} ${transaction.asset.split(':')[1]?.toUpperCase() || transaction.asset}
-
-${explorerLink ? `🔗 <b>Blockchain Hash:</b>\n<a href="${explorerLink}">${txHash}</a>` : ''}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-`;
-        const extra: any = { parse_mode: 'HTML', disable_web_page_preview: true };
-
-        // Add button if link exists
-        if (explorerLink) {
-            extra.reply_markup = {
-                inline_keyboard: [[{ text: '🔍 View on Explorer', url: explorerLink }]]
-            };
-        }
-
-        await bot.telegram.sendMessage(userId, notifyMsg, extra);
-        logger.info(`Notified user ${userId} about transaction ${reference} status ${status}`);
+        // Notify user via shared service
+        await notificationService.sendUpdate(
+            transaction.user_id,
+            reference,
+            status,
+            transaction.asset,
+            transaction.amount,
+            txHash,
+            message
+        );
 
         return res.send({ success: true });
     } catch (error: any) {

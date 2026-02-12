@@ -565,25 +565,32 @@
             </header>
 
             <div class="stats-row">
-                <div class="stat-card">
+                <div class="stat-card" style="position: relative;">
                     <div class="stat-icon"><i data-lucide="users"></i></div>
                     <div class="stat-info">
                         <h4>Total Users</h4>
                         <span id="stat-total-users">0</span>
                     </div>
+                    <div id="rate-indicator"
+                        style="position: absolute; top: 10px; right: 10px; font-size: 10px; color: var(--text-secondary); background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 10px;">
+                        Rate: ₦0/$</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i data-lucide="shopping-cart"></i></div>
                     <div class="stat-info">
-                        <h4>Total Volume</h4>
-                        <span id="stat-total-volume">$0.00</span>
+                        <h4>Platform Volume</h4>
+                        <span id="stat-total-volume" style="font-size: 14px;">$0 | ₦0</span>
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Global Combined
+                            Total</div>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i data-lucide="dollar-sign"></i></div>
                     <div class="stat-info">
-                        <h4>Total Earned</h4>
-                        <span id="stat-total-earned">$0.00</span>
+                        <h4>Platform Earnings</h4>
+                        <span id="stat-total-earned" style="font-size: 14px;">$0 | ₦0</span>
+                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Dynamic Fee Income
+                        </div>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -753,12 +760,17 @@
     <script>
         let adminKey = localStorage.getItem('bitnova_admin_key') || '';
         let sortDirections = {};
+        let refreshInterval = null;
 
         function init() {
             lucide.createIcons();
             if (adminKey) {
                 document.getElementById('auth-overlay').style.display = 'none';
                 fetchData();
+
+                // Auto-refresh every 30 seconds
+                if (refreshInterval) clearInterval(refreshInterval);
+                refreshInterval = setInterval(fetchData, 30000);
             }
         }
 
@@ -788,30 +800,45 @@
                 if (statsRes.status === 401) return logout();
                 const stats = await statsRes.json();
 
-                document.getElementById('stat-total-users').innerText = stats.totalUsers;
-                document.getElementById('stat-total-volume').innerText = `$${Number(stats.totalVolume).toLocaleString()}`;
-                document.getElementById('stat-total-earned').innerText = `$${Number(stats.totalEarned).toLocaleString()}`;
-                document.getElementById('stat-total-txs').innerText = stats.allTransactions;
-                document.getElementById('stat-completed-txs').innerText = stats.completedTransactions;
+                if (stats) {
+                    document.getElementById('stat-total-users').innerText = stats.totalUsers || 0;
+                    if (document.getElementById('rate-indicator')) {
+                        document.getElementById('rate-indicator').innerText = `Rate: ₦${stats.currentRate?.toLocaleString()}/$`;
+                    }
 
-                // Sync all transactions list
-                renderAllTransactions(txs);
+                    const volUSD = Number(stats.totalVolumeUSD || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                    const volNGN = Number(stats.totalVolumeNGN || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+                    document.getElementById('stat-total-volume').innerText = `$${volUSD} | ₦${volNGN}`;
+
+                    const earnedUSD = Number(stats.totalEarnedUSD || 0).toLocaleString(undefined, { maximumFractionDigits: 3 });
+                    const earnedNGN = Number(stats.totalEarnedNGN || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
+                    document.getElementById('stat-total-earned').innerText = `$${earnedUSD} | ₦${earnedNGN}`;
+
+                    document.getElementById('stat-total-txs').innerText = stats.allTransactions || 0;
+                    document.getElementById('stat-completed-txs').innerText = stats.completedTransactions || 0;
+                }
 
                 // 2. Transactions
                 const txRes = await fetch('/api/admin/transactions', { headers });
-                const txs = await txRes.json();
-                renderTxSummary(txs);
-                renderAllTransactions(txs);
+                if (txRes.ok) {
+                    const txs = await txRes.json();
+                    renderTxSummary(txs);
+                    renderAllTransactions(txs);
+                }
 
                 // 3. Users
                 const usersRes = await fetch('/api/admin/users', { headers });
-                const users = await usersRes.json();
-                renderUsers(users);
+                if (usersRes.ok) {
+                    const users = await usersRes.json();
+                    renderUsers(users);
+                }
 
                 // 4. Settings
                 const settingsRes = await fetch('/api/admin/settings', { headers });
-                const settings = await settingsRes.json();
-                document.getElementById('fee-input').value = settings.platform_fee || '0.1';
+                if (settingsRes.ok) {
+                    const settings = await settingsRes.json();
+                    document.getElementById('fee-input').value = settings.platform_fee || '0.1';
+                }
 
                 lucide.createIcons();
             } catch (err) {
@@ -822,41 +849,46 @@
         }
 
         function renderTxSummary(txs) {
-            const body = document.getElementById('tx-summary-body');
-            body.innerHTML = txs.slice(0, 10).map(tx => `
-                <tr>
-                    <td>
-                        <div class="user-cell">
-                            <div class="avatar">${(tx.username || 'A').charAt(0)}</div>
-                            <b>@${tx.username || 'User'}</b>
-                        </div>
-                    </td>
-                    <td><b>${tx.type}</b></td>
-                    <td><b>${(tx.currency === 'NGN' ? '₦' : '$')}${Number(tx.amount).toLocaleString()}</b></td>
-                    <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
-                    <td>${new Date(tx.created_at).toLocaleDateString()}</td>
-                </tr>
-            `).join('');
+            try {
+                const body = document.getElementById('tx-summary-body');
+                if (!body || !Array.isArray(txs)) return;
+                body.innerHTML = txs.slice(0, 10).map(tx => `
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="avatar">${(tx.username || 'A').charAt(0)}</div>
+                                <b>@${tx.username || 'User'}</b>
+                            </div>
+                        </td>
+                        <td><b>${tx.type || 'TX'}</b></td>
+                        <td><b>${(tx.currency === 'NGN' ? '₦' : '$')}${(tx.amount || 0).toLocaleString()}</b></td>
+                        <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
+                        <td>${new Date(tx.created_at || Date.now()).toLocaleDateString()}</td>
+                    </tr>
+                `).join('');
+            } catch (e) { console.error('Error rendering summary:', e); }
         }
 
         function renderAllTransactions(txs) {
-            const body = document.getElementById('all-tx-body');
-            if (!body) return;
-            body.innerHTML = txs.map(tx => `
-                <tr>
-                    <td>
-                        <div class="user-cell">
-                            <div class="avatar">${(tx.username || 'A').charAt(0)}</div>
-                            <b>@${tx.username || 'User'}</b>
-                        </div>
-                    </td>
-                    <td><code>${tx.reference.substring(0, 12)}...</code></td>
-                    <td><b>${tx.type}</b></td>
-                    <td><b>${(tx.currency === 'NGN' ? '₦' : '$')}${Number(tx.amount).toLocaleString()}</b></td>
-                    <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
-                    <td>${new Date(tx.created_at).toLocaleString()}</td>
-                </tr>
-            `).join('');
+            try {
+                const body = document.getElementById('all-tx-body');
+                if (!body || !Array.isArray(txs)) return;
+                body.innerHTML = txs.map(tx => `
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <div class="avatar">${(tx.username || 'A').charAt(0)}</div>
+                                <b>@${tx.username || 'User'}</b>
+                            </div>
+                        </td>
+                        <td><code>${(tx.reference || 'REF').substring(0, 12)}...</code></td>
+                        <td><b>${tx.type || 'TX'}</b></td>
+                        <td><b>${(tx.currency === 'NGN' ? '₦' : '$')}${(tx.amount || 0).toLocaleString()}</b></td>
+                        <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
+                        <td>${new Date(tx.created_at || Date.now()).toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            } catch (e) { console.error('Error rendering all txs:', e); }
         }
 
         function renderUsers(users) {
@@ -874,7 +906,10 @@
                         </div>
                     </td>
                     <td>${new Date(u.created_at).toLocaleDateString()}</td>
-                    <td><b>$${Number(u.total_volume).toLocaleString()}</b></td>
+                    <td>
+                        <div style="font-weight: 700;">$${Number(u.total_volume).toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                        <div style="font-size: 10px; color: var(--text-secondary);">₦${Number(u.total_volume_ngn).toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                    </td>
                     <td>${u.tx_count}</td>
                     <td><button class="btn-view" onclick="viewUserDetails('${u.id}')">Deep-Dive</button></td>
                 </tr>
@@ -896,7 +931,10 @@
                 document.getElementById('detail-user-id').innerText = `Database ID: ${data.user.id}`;
                 document.getElementById('detail-avatar').innerText = (data.user.full_name || 'U').charAt(0);
 
-                document.getElementById('detail-vol').innerText = `$${Number(data.stats.volume).toLocaleString()}`;
+                const uVolUSD = Number(data.stats.volume).toLocaleString(undefined, { maximumFractionDigits: 2 });
+                const uVolNGN = Number(data.stats.volume_ngn).toLocaleString(undefined, { maximumFractionDigits: 0 });
+                document.getElementById('detail-vol').innerHTML = `<div style="font-size: 1.5rem;">$${uVolUSD}</div><div style="font-size: 0.9rem; opacity: 0.8;">₦${uVolNGN}</div>`;
+
                 document.getElementById('detail-success').innerText = data.stats.success;
                 document.getElementById('detail-failed').innerText = data.stats.failed;
 

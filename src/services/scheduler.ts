@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import { storageService } from './storage';
 import { switchService } from './switch';
 import { blockchainService } from './blockchain';
+import { notificationService } from './notification';
 import { config } from '../config';
 import Database from 'better-sqlite3';
 import path from 'path';
@@ -13,17 +14,17 @@ const dbPath = path.resolve(__dirname, '../../bitnova.db');
 const db = new Database(dbPath);
 
 export const startScheduler = () => {
-    logger.info('⏳ Starting Transaction Recovery Scheduler...');
+    logger.info('⏳ Starting Transaction Recovery Scheduler (1min)...');
 
-    // Run every 5 minutes
-    cron.schedule('*/5 * * * *', async () => {
+    // Run every 1 minute
+    cron.schedule('* * * * *', async () => {
         logger.info('🔄 Running scheduled recovery check...');
         try {
             // Find PENDING transactions
             const rows = db.prepare(`
-                SELECT reference, created_at, type FROM transactions 
-                WHERE status IN ('PENDING', 'AWAITING_DEPOSIT')
-                AND created_at < datetime('now', '-5 minutes')
+                SELECT reference, created_at, type, user_id, asset, amount FROM transactions 
+                WHERE status IN ('PENDING', 'AWAITING_DEPOSIT', 'PROCESSING', 'VERIFIED')
+                AND created_at < datetime('now', '-1 minutes')
                 AND created_at > datetime('now', '-24 hours')
             `).all() as any[];
 
@@ -31,10 +32,10 @@ export const startScheduler = () => {
                 logger.info(`Found ${rows.length} pending transactions to recover.`);
                 for (const tx of rows) {
                     try {
-                        // 1. Get latest status from Switch
+                        const previousStatus = tx.status;
                         const status = await switchService.getStatus(tx.reference);
 
-                        // 2. If it's OFFRAMP and AWAITING_DEPOSIT, we need to check blockchain
+                        // 1. If it's OFFRAMP and AWAITING_DEPOSIT, we need to check blockchain
                         if ((status.type === 'OFFRAMP' || tx.type === 'OFFRAMP') && status.status === 'AWAITING_DEPOSIT') {
                             const depositAddress = status.deposit?.address;
                             if (depositAddress) {
@@ -45,18 +46,30 @@ export const startScheduler = () => {
                                     logger.info(`Found hash ${hash} for ${tx.reference}, confirming...`);
                                     const result = await switchService.confirmDeposit(tx.reference, hash);
                                     if (result) {
-                                        storageService.updateTransactionStatus(tx.reference, result.status || 'PROCESSING', hash);
+                                        const newStatus = result.status || 'PROCESSING';
+                                        storageService.updateTransactionStatus(tx.reference, newStatus, hash);
                                         logger.info(`✅ Auto-confirmed ${tx.reference}`);
+
+                                        // Notify user about detection
+                                        await notificationService.sendUpdate(tx.user_id, tx.reference, newStatus, tx.asset, tx.amount, hash);
                                     }
-                                } else {
-                                    logger.info(`No incoming tx found for ${tx.reference} yet.`);
                                 }
                             }
                         }
-                        // 3. If just a status update (e.g. Onramp confirmed by bank)
-                        else if (status.status !== 'PENDING' && status.status !== 'AWAITING_DEPOSIT') {
+                        // 2. If status changed, update and notify
+                        else if (status.status !== previousStatus) {
                             storageService.updateTransactionStatus(tx.reference, status.status);
                             logger.info(`Updated status for ${tx.reference} -> ${status.status}`);
+
+                            // Send notification
+                            await notificationService.sendUpdate(
+                                tx.user_id,
+                                tx.reference,
+                                status.status,
+                                tx.asset,
+                                tx.amount,
+                                status.txHash || status.hash || status.transactionHash
+                            );
                         }
                     } catch (e: any) {
                         logger.error(`❌ Failed to recover ${tx.reference}: ${e.message}`);
