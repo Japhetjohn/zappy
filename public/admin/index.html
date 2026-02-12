@@ -449,15 +449,22 @@
         @media (max-width: 1024px) {
             aside {
                 transform: translateX(-100%);
+                z-index: 2000;
+                /* Ensure on top */
+                width: 250px;
+                /* Slightly smaller on mobile */
             }
 
             aside.active {
                 transform: translateX(0);
+                box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
             }
 
             main {
-                margin-left: 0;
+                margin-left: 0 !important;
+                /* Force override */
                 padding: 20px;
+                width: 100%;
             }
 
             .mobile-header {
@@ -492,7 +499,29 @@
             }
 
             table {
-                min-width: 600px;
+                min-width: 100%;
+                /* Allow shrinking */
+            }
+
+            /* Hide less important columns on mobile */
+            .hide-mobile {
+                display: none;
+            }
+
+            td,
+            th {
+                padding: 12px 5px;
+                /* Reduce padding */
+                font-size: 13px;
+            }
+
+            .user-cell b {
+                font-size: 13px;
+            }
+
+            .status-pill {
+                padding: 2px 8px;
+                font-size: 9px;
             }
         }
     </style>
@@ -643,11 +672,12 @@
                     <thead>
                         <tr>
                             <th>User</th>
-                            <th>Reference</th>
-                            <th>Type</th>
+                            <th class="hide-mobile">Reference</th>
+                            <th class="hide-mobile">Type</th>
                             <th>Amount</th>
                             <th>Status</th>
-                            <th>Date</th>
+                            <th class="hide-mobile">Date</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="all-tx-body"></tbody>
@@ -834,12 +864,42 @@
                 </div>
             </div>
 
+            <div id="modal-actions"
+                style="margin-top: 25px; border-top: 1px solid var(--border); padding-top: 20px; display: none;">
+                <button onclick="cancelCurrentTransaction()"
+                    style="width: 100%; background: #fee2e2; color: #ef4444; border: none; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer;">
+                    🚫 Cancel Transaction
+                </button>
+            </div>
+
         </div>
     </div>
 
     <script>
         // Existing script content...
         let adminKey = localStorage.getItem('bitnova_admin_key') || '';
+        let currentTxRef = null;
+
+        async function cancelCurrentTransaction() {
+            if (!currentTxRef) return;
+            if (!confirm('Are you sure you want to cancel this transaction? This cannot be undone.')) return;
+
+            try {
+                const headers = { 'Authorization': `Bearer ${adminKey}` };
+                const res = await fetch(`/api/admin/transactions/${currentTxRef}/cancel`, { method: 'POST', headers });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Transaction cancelled successfully');
+                    closeTxModal();
+                    fetchData(); // Refresh list
+                } else {
+                    alert('Failed: ' + (json.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Error cancelling transaction');
+            }
+        }
+
         let sortDirections = {};
         let refreshInterval = null;
 
@@ -1027,11 +1087,11 @@
                                 <b>@${tx.username || 'User'}</b>
                             </div>
                         </td>
-                        <td><code>${(tx.reference || 'REF').substring(0, 12)}...</code></td>
-                        <td><b>${tx.type || 'TX'}</b></td>
+                        <td class="hide-mobile"><code>${(tx.reference || 'REF').substring(0, 12)}...</code></td>
+                        <td class="hide-mobile"><b>${tx.type || 'TX'}</b></td>
                         <td><b>${symbol}${(tx.amount || 0).toLocaleString()}</b></td>
                         <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
-                        <td>${new Date(tx.created_at || Date.now()).toLocaleString()}</td>
+                        <td class="hide-mobile">${new Date(tx.created_at || Date.now()).toLocaleString()}</td>
                         <td><button class="btn-view" onclick="viewTransaction('${tx.reference}')">Details</button></td>
                     </tr>
                 `}).join('');

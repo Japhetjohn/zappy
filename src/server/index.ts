@@ -61,6 +61,32 @@ app.get('/api/admin/transactions/:reference', adminAuth, (req: Request, res: Res
     }
 });
 
+app.post('/api/admin/transactions/:reference/cancel', adminAuth, async (req: Request, res: Response) => {
+    try {
+        const reference = req.params.reference;
+        const tx = storageService.getTransaction(reference);
+        if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+        // Update status to CANCELLED
+        storageService.updateTransactionStatus(reference, 'CANCELLED');
+
+        // Notify user
+        await notificationService.sendUpdate(
+            tx.user_id,
+            reference,
+            'CANCELLED',
+            tx.asset,
+            tx.amount,
+            undefined,
+            'Transaction cancelled by admin.'
+        );
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/api/admin/users', adminAuth, async (req: Request, res: Response) => {
     try {
         const rates = await switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
