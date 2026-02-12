@@ -32,31 +32,16 @@ bot.use((ctx, next) => {
     return next();
 });
 
-bot.use(stage.middleware());
-
-// Visual Helpers
-// Visual Helpers
-const getWelcomeMsg = (name: string) => `
-Hello ${name} 👋
-
-My name is <b>Bitnova Africa</b>, your friendly crypto assistant! 🤖✨
-
-I'm here to make buying and selling crypto super easy, fast, and secure for you. Whether you want to turn cash into crypto or crypto into cash, I've got you covered! 🚀
-
-<b>Here is what I can do for you:</b>
-💰 <b>Buy Crypto:</b> Get crypto sent directly to your wallet.
-💸 <b>Sell Crypto:</b> Turn your crypto into cash in your bank account.
-
-<i>Ready to get started? Tap a button below!</i> 👇
-`;
-
-import { MAIN_KEYBOARD } from './keyboards';
-
 // ═══════════════════════════════════════════════════════════
-// 🏠 START COMMAND
+// 🏠 START COMMAND ( Global Priority )
 // ═══════════════════════════════════════════════════════════
 bot.command('start', async (ctx) => {
     try {
+        // Force clear scene state manually since we are before stage middleware
+        if (ctx.session) {
+            (ctx.session as any).__scenes = undefined;
+        }
+
         logger.info(`Processing /start command for ${ctx.from?.id}`);
         const name = ctx.from?.first_name || 'Friend';
         const msg = getWelcomeMsg(name);
@@ -85,6 +70,28 @@ bot.command('start', async (ctx) => {
         }
     }
 });
+
+bot.use(stage.middleware());
+
+// Visual Helpers
+// Visual Helpers
+const getWelcomeMsg = (name: string) => `
+Hello ${name} 👋
+
+My name is <b>Bitnova Africa</b>, your friendly crypto assistant! 🤖✨
+
+I'm here to make buying and selling crypto super easy, fast, and secure for you. Whether you want to turn cash into crypto or crypto into cash, I've got you covered! 🚀
+
+<b>Here is what I can do for you:</b>
+💰 <b>Buy Crypto:</b> Get crypto sent directly to your wallet.
+💸 <b>Sell Crypto:</b> Turn your crypto into cash in your bank account.
+
+<i>Ready to get started? Tap a button below!</i> 👇
+`;
+
+import { MAIN_KEYBOARD } from './keyboards';
+
+// START Command moved to top for priority
 
 // 📊 ADMIN STATS COMMAND
 bot.command('stats', async (ctx) => {
