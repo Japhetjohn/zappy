@@ -96,7 +96,7 @@ export class SwitchService {
         }
     }
 
-    async getOnrampQuote(amount: number, country: string, asset: string, currency: string = 'NGN'): Promise<Quote> {
+    async getOnrampQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number): Promise<Quote> {
         try {
             const response = await this.api.post('/onramp/quote', {
                 amount,
@@ -104,7 +104,7 @@ export class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: config.developerFee,
+                developer_fee: developerFee !== undefined ? developerFee : config.developerFee,
             });
             if (response.data.success) {
                 return response.data.data;
@@ -125,6 +125,7 @@ export class SwitchService {
         currency?: string;
         senderBankCode?: string;
         senderAccountNumber?: string;
+        developerFee?: number;
     }): Promise<any> {
         try {
             // Sanitize holder name...
@@ -144,7 +145,7 @@ export class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: config.developerFee,
+                developer_fee: data.developerFee !== undefined ? data.developerFee : config.developerFee,
                 // Add developer wallet for fee collection (Solana/Single-Wallet mode)
                 developer_wallet: config.developerWallet || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV',
             };
@@ -170,7 +171,7 @@ export class SwitchService {
         }
     }
 
-    async getOfframpQuote(amount: number, country: string, asset: string, currency: string = 'NGN'): Promise<Quote> {
+    async getOfframpQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number): Promise<Quote> {
         try {
             const response = await this.api.post('/offramp/quote', {
                 amount,
@@ -178,7 +179,7 @@ export class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: config.developerFee,
+                developer_fee: developerFee !== undefined ? developerFee : config.developerFee,
             });
             if (response.data.success) {
                 return response.data.data;
@@ -200,6 +201,7 @@ export class SwitchService {
             holderName: string;
         };
         currency?: string;
+        developerFee?: number;
     }): Promise<any> {
         try {
             const response = await this.api.post('/offramp/initiate', {
@@ -215,7 +217,7 @@ export class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: config.developerFee,
+                developer_fee: data.developerFee !== undefined ? data.developerFee : config.developerFee,
                 developer_wallet: config.developerWallet
             });
             if (response.data.success) {

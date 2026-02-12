@@ -471,22 +471,29 @@
                 <div class="stat-card">
                     <div class="stat-icon"><i data-lucide="shopping-cart"></i></div>
                     <div class="stat-info">
-                        <h4>Volume</h4>
+                        <h4>Total Volume</h4>
                         <span id="stat-total-volume">$0.00</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon"><i data-lucide="percent"></i></div>
+                    <div class="stat-icon"><i data-lucide="dollar-sign"></i></div>
                     <div class="stat-info">
-                        <h4>Profit</h4>
-                        <span id="stat-total-profit">$0.00</span>
+                        <h4>Total Earned</h4>
+                        <span id="stat-total-earned">$0.00</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i data-lucide="refresh-ccw"></i></div>
+                    <div class="stat-info">
+                        <h4>Total Transactions</h4>
+                        <span id="stat-total-txs">0</span>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i data-lucide="check-circle"></i></div>
                     <div class="stat-info">
-                        <h4>Success Rate</h4>
-                        <span id="stat-success-rate">0%</span>
+                        <h4>Completed</h4>
+                        <span id="stat-completed-txs">0</span>
                     </div>
                 </div>
             </div>
@@ -521,10 +528,14 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>User</th>
-                            <th>Member Since</th>
-                            <th>Volume</th>
-                            <th>TXs</th>
+                            <th onclick="sortTable('user-body', 0)" style="cursor:pointer">User <i
+                                    data-lucide="arrow-up-down" style="width:12px"></i></th>
+                            <th onclick="sortTable('user-body', 1)" style="cursor:pointer">Member Since <i
+                                    data-lucide="arrow-up-down" style="width:12px"></i></th>
+                            <th onclick="sortTable('user-body', 2)" style="cursor:pointer">Volume <i
+                                    data-lucide="arrow-up-down" style="width:12px"></i></th>
+                            <th onclick="sortTable('user-body', 3)" style="cursor:pointer">TXs <i
+                                    data-lucide="arrow-up-down" style="width:12px"></i></th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -608,6 +619,7 @@
 
     <script>
         let adminKey = localStorage.getItem('bitnova_admin_key') || '';
+        let sortDirections = {};
 
         function init() {
             lucide.createIcons();
@@ -643,9 +655,9 @@
 
                 document.getElementById('stat-total-users').innerText = stats.totalUsers;
                 document.getElementById('stat-total-volume').innerText = `$${Number(stats.totalVolume).toLocaleString()}`;
-                document.getElementById('stat-total-profit').innerText = `$${Number(stats.totalProfit).toLocaleString()}`;
-                const rate = stats.successfulTxs && stats.totalTransactions ? Math.round((stats.successfulTxs / stats.totalTransactions) * 100) : 0;
-                document.getElementById('stat-success-rate').innerText = `${rate}%`;
+                document.getElementById('stat-total-earned').innerText = `$${Number(stats.totalEarned).toLocaleString()}`;
+                document.getElementById('stat-total-txs').innerText = stats.allTransactions;
+                document.getElementById('stat-completed-txs').innerText = stats.completedTransactions;
 
                 // 2. Transactions
                 const txRes = await fetch('/api/admin/transactions', { headers });
@@ -680,7 +692,7 @@
                     </td>
                     <td><b>${tx.type}</b></td>
                     <td><b>$${tx.amount}</b></td>
-                    <td><span class="status-pill ${tx.status.toLowerCase()}">${tx.status}</span></td>
+                    <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
                     <td>${new Date(tx.created_at).toLocaleDateString()}</td>
                 </tr>
             `).join('');
@@ -703,39 +715,65 @@
                     <td>${new Date(u.created_at).toLocaleDateString()}</td>
                     <td><b>$${Number(u.total_volume).toLocaleString()}</b></td>
                     <td>${u.tx_count}</td>
-                    <td><button class="btn-view" onclick="viewUserDetails(${u.id})">Deep-Dive</button></td>
+                    <td><button class="btn-view" onclick="viewUserDetails('${u.id}')">Deep-Dive</button></td>
                 </tr>
             `).join('');
         }
 
         async function viewUserDetails(userId) {
-            const headers = { 'Authorization': `Bearer ${adminKey}` };
-            const detailRes = await fetch(`/api/admin/users/${userId}/details`, { headers });
-            const data = await detailRes.json();
+            console.log("Viewing user:", userId);
+            try {
+                const headers = { 'Authorization': `Bearer ${adminKey}` };
+                const detailRes = await fetch(`/api/admin/users/${userId}/details`, { headers });
+                const data = await detailRes.json();
 
-            const txRes = await fetch(`/api/admin/users/${userId}/transactions`, { headers });
-            const txs = await txRes.json();
+                const txRes = await fetch(`/api/admin/users/${userId}/transactions`, { headers });
+                const txs = await txRes.json();
 
-            document.getElementById('detail-full-name').innerText = data.user.full_name || 'User Profile';
-            document.getElementById('detail-username').innerText = `@${data.user.username || 'unknown'}`;
-            document.getElementById('detail-user-id').innerText = `Database ID: ${data.user.id}`;
-            document.getElementById('detail-avatar').innerText = (data.user.full_name || 'U').charAt(0);
+                document.getElementById('detail-full-name').innerText = data.user.full_name || 'User Profile';
+                document.getElementById('detail-username').innerText = `@${data.user.username || 'unknown'}`;
+                document.getElementById('detail-user-id').innerText = `Database ID: ${data.user.id}`;
+                document.getElementById('detail-avatar').innerText = (data.user.full_name || 'U').charAt(0);
 
-            document.getElementById('detail-vol').innerText = `$${Number(data.stats.volume).toLocaleString()}`;
-            document.getElementById('detail-success').innerText = data.stats.success;
-            document.getElementById('detail-failed').innerText = data.stats.failed;
+                document.getElementById('detail-vol').innerText = `$${Number(data.stats.volume).toLocaleString()}`;
+                document.getElementById('detail-success').innerText = data.stats.success;
+                document.getElementById('detail-failed').innerText = data.stats.failed;
 
-            document.getElementById('detail-tx-body').innerHTML = txs.map(tx => `
-                <tr>
-                    <td><code>${tx.reference.substring(0, 8)}...</code></td>
-                    <td><b>${tx.type}</b></td>
-                    <td>$${tx.amount}</td>
-                    <td><span class="status-pill ${tx.status.toLowerCase()}">${tx.status}</span></td>
-                    <td>${new Date(tx.created_at).toLocaleString()}</td>
-                </tr>
-            `).join('');
+                document.getElementById('detail-tx-body').innerHTML = txs.map(tx => `
+                    <tr>
+                        <td><code>${tx.reference.substring(0, 8)}...</code></td>
+                        <td><b>${tx.type}</b></td>
+                        <td>$${tx.amount}</td>
+                        <td><span class="status-pill ${(tx.status || 'PENDING').toLowerCase()}">${tx.status || 'PENDING'}</span></td>
+                        <td>${new Date(tx.created_at).toLocaleString()}</td>
+                    </tr>
+                `).join('');
 
-            switchSection('user-detail');
+                switchSection('user-detail');
+                lucide.createIcons();
+            } catch (err) {
+                console.error("Error loading user details:", err);
+                alert("Failed to load user details");
+            }
+        }
+
+        function sortTable(tableId, colIndex) {
+            const table = document.getElementById(tableId);
+            const rows = Array.from(table.rows);
+            const dir = sortDirections[colIndex] === 'asc' ? 'desc' : 'asc';
+            sortDirections[colIndex] = dir;
+
+            rows.sort((a, b) => {
+                let cellA = a.cells[colIndex].innerText.replace('$', '').replace(/,/g, '');
+                let cellB = b.cells[colIndex].innerText.replace('$', '').replace(/,/g, '');
+
+                if (!isNaN(parseFloat(cellA))) {
+                    return dir === 'asc' ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
+                }
+                return dir === 'asc' ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+            });
+
+            rows.forEach(row => table.appendChild(row));
         }
 
         async function saveSettings() {

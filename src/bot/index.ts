@@ -84,8 +84,8 @@ bot.command('stats', async (ctx) => {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 👥 <b>Total Users:</b> ${stats.totalUsers.toLocaleString()}
-📝 <b>Total Transactions:</b> ${stats.totalTransactions.toLocaleString()}
-✅ <b>Successful Transfers:</b> ${stats.successfulTxs.toLocaleString()}
+📝 <b>Total Transactions:</b> ${stats.allTransactions.toLocaleString()}
+✅ <b>Successful Transfers:</b> ${stats.completedTransactions.toLocaleString()}
 💰 <b>Total Volume:</b> $${stats.totalVolume.toLocaleString()}
 
 <i>Scale: Ready for 20k+ users/day</i> 🌍⚡️

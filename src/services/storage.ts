@@ -195,21 +195,22 @@ export const storageService = {
   // 📊 PLATFORM ANALYTICS HANDLER
   getStats: () => {
     const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as any).count;
-    const totalTransactions = (db.prepare('SELECT COUNT(*) as count FROM transactions').get() as any).count;
-    const successfulTxs = (db.prepare("SELECT COUNT(*) as count FROM transactions WHERE status = 'COMPLETED'").get() as any).count;
+    const allTransactions = (db.prepare('SELECT COUNT(*) as count FROM transactions').get() as any).count;
+    const completedTransactions = (db.prepare("SELECT COUNT(*) as count FROM transactions WHERE status = 'COMPLETED'").get() as any).count;
     const totalVolume = (db.prepare("SELECT SUM(amount) as sum FROM transactions WHERE status = 'COMPLETED'").get() as any).sum || 0;
 
     // Profit based on dynamic fee
     const feeRow = db.prepare("SELECT value FROM settings WHERE key = 'platform_fee'").get() as any;
     const feePercent = feeRow ? parseFloat(feeRow.value) : 0.1;
-    const totalProfit = (totalVolume * feePercent) / 100;
+    const totalEarned = (totalVolume * feePercent) / 100;
 
     return {
       totalUsers,
-      totalTransactions,
-      successfulTxs,
+      allTransactions,
+      completedTransactions,
       totalVolume,
-      totalProfit
+      totalEarned,
+      platformFee: feePercent
     };
   },
 

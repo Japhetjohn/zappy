@@ -210,16 +210,19 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
         ctx.wizard.state.data.amount = amount;
 
         try {
+            const settings = storageService.getSettings();
+            const platformFeeRaw = settings.platform_fee || '0.1';
+            const platformFee = parseFloat(platformFeeRaw);
+
             const quote = await switchService.getOfframpQuote(
                 amount,
                 ctx.wizard.state.data.country,
                 ctx.wizard.state.data.asset.id,
-                ctx.wizard.state.data.currency
+                ctx.wizard.state.data.currency,
+                platformFee
             );
             ctx.wizard.state.quote = quote;
-
-            const settings = storageService.getSettings();
-            const platformFee = settings.platform_fee || '0.1';
+            ctx.wizard.state.platformFee = platformFee;
 
             const msg = `
 📊 <b>Review Quote</b>
@@ -231,7 +234,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${quote.destination.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> ${platformFee}%
+⚡️ <b>Platform Fee:</b> ${ctx.wizard.state.platformFee}%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -501,7 +504,8 @@ Choose your receiving bank:
                     bankCode: ctx.wizard.state.data.beneficiary.bankCode,
                     accountNumber: ctx.wizard.state.data.beneficiary.accountNumber,
                     holderName: ctx.wizard.state.data.beneficiary.holderName
-                }
+                },
+                developerFee: ctx.wizard.state.platformFee
             });
 
             // Auto-save beneficiary
