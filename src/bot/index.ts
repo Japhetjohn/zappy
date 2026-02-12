@@ -57,6 +57,7 @@ import { MAIN_KEYBOARD } from './keyboards';
 // ═══════════════════════════════════════════════════════════
 bot.command('start', async (ctx) => {
     try {
+        logger.info(`Processing /start command for ${ctx.from?.id}`);
         const name = ctx.from?.first_name || 'Friend';
         const msg = getWelcomeMsg(name);
 
@@ -249,7 +250,11 @@ ${hash ? `🔗 <b>Transaction Hash:</b>\n<code>${hash}</code>` : ''}
 // Trigger Welcome/Menu: hi, hello, home, menu, etc.
 bot.hears(/\b(hi|hello|hey|yo|start|menu|home)\b/i, async (ctx) => {
     try {
-        if (ctx.scene.current) return; // Don't interrupt active wizards
+        logger.info(`Processing HEARS trigger for ${ctx.from?.id}. Scene: ${ctx.scene.current ? ctx.scene.current.id : 'none'}`);
+        if (ctx.scene.current) {
+            logger.info(`Returning because user is in scene: ${ctx.scene.current.id}`);
+            return; // Don't interrupt active wizards
+        }
         const name = ctx.from?.first_name || 'Friend';
         await ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
     } catch (err: any) {

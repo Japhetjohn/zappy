@@ -171,15 +171,16 @@ export function startServer() {
 
         // 🚀 Self-Ping Mechanism (Prevents sleeping on render/railway/etc)
         const selfUrl = config.baseUrl || `http://localhost:${port}`;
+        logger.info(`⏰ Self-ping scheduled for: ${selfUrl} (every 60s)`);
 
+        const axios = require('axios');
         setInterval(async () => {
             try {
-                const axios = require('axios');
                 await axios.get(`${selfUrl}/health`);
-                logger.debug(`💓 Heartbeat: Self-ping to ${selfUrl} successful`);
+                // Only log errors to avoid cluttering logs
             } catch (e: any) {
                 logger.warn(`💓 Heartbeat failed for ${selfUrl}: ${e.message}`);
             }
-        }, 300000); // Every 5 minutes for higher reliability
+        }, 60000); // Check every minute
     });
 }
