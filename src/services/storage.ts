@@ -320,6 +320,15 @@ export const storageService = {
   }
   ,
 
+  getTransactionDetails: (reference: string) => {
+    return db.prepare(`
+      SELECT t.*, u.username, u.full_name, u.id as user_db_id
+      FROM transactions t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.reference = ?
+    `).get(reference) as any;
+  },
+
   getUserTransactions: (userId: number, limit: number = 20) => {
     return db.prepare(`
       SELECT * FROM transactions 

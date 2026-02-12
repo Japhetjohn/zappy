@@ -58,8 +58,9 @@ export const startScheduler = () => {
                         }
                         // 2. If status changed, update and notify
                         else if (status.status !== previousStatus) {
-                            storageService.updateTransactionStatus(tx.reference, status.status);
-                            logger.info(`Updated status for ${tx.reference} -> ${status.status}`);
+                            const txHash = status.hash || status.txHash || status.transactionHash || status.tx_hash;
+                            storageService.updateTransactionStatus(tx.reference, status.status, txHash);
+                            logger.info(`Updated status for ${tx.reference} -> ${status.status} (Hash: ${txHash || 'None'})`);
 
                             // Only notify on critical status changes to avoid spam
                             // VERIFIED (Confirmed), COMPLETED (Success), FAILED/EXPIRED (Failure)

@@ -376,7 +376,7 @@ Is this correct?
                 country: ctx.wizard.state.data.country,
                 asset: ctx.wizard.state.data.asset.id,
                 walletAddress: walletAddress,
-                holderName: 'Crypto Buyer',
+                holderName: 'Bitnova User',
                 currency: ctx.wizard.state.data.currency,
                 developerFee: ctx.wizard.state.platformFee
             });

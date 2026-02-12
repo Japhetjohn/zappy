@@ -50,6 +50,17 @@ app.get('/api/admin/transactions', adminAuth, (req: Request, res: Response) => {
     }
 });
 
+app.get('/api/admin/transactions/:reference', adminAuth, (req: Request, res: Response) => {
+    try {
+        const reference = req.params.reference;
+        const tx = storageService.getTransactionDetails(reference);
+        if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+        res.json(tx);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/api/admin/users', adminAuth, async (req: Request, res: Response) => {
     try {
         const rates = await switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
