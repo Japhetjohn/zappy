@@ -210,6 +210,28 @@
             border-radius: 12px;
             cursor: pointer;
             color: var(--text-main);
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .refresh-btn:hover {
+            background: var(--bg-light);
+        }
+
+        .refresh-btn.spinning i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* --- Stats Cards --- */
@@ -321,9 +343,18 @@
             color: var(--pending);
         }
 
-        .failed {
+        .failed,
+        .expired {
             background: rgba(238, 93, 80, 0.1);
             color: var(--failed);
+        }
+
+        .awaiting_deposit,
+        .processing,
+        .received,
+        .verified {
+            background: rgba(67, 24, 255, 0.1);
+            color: var(--accent);
         }
 
         .btn-view {
@@ -645,6 +676,8 @@
         }
 
         async function fetchData() {
+            const btn = document.querySelector('.refresh-btn');
+            if (btn) btn.classList.add('spinning');
             try {
                 const headers = { 'Authorization': `Bearer ${adminKey}` };
 
@@ -677,6 +710,8 @@
                 lucide.createIcons();
             } catch (err) {
                 console.error('Fetch error:', err);
+            } finally {
+                if (btn) btn.classList.remove('spinning');
             }
         }
 

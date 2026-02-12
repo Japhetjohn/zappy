@@ -257,7 +257,7 @@ export const storageService = {
       SELECT 
         COUNT(*) as total_tx,
         SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as success_tx,
-        SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed_tx,
+        SUM(CASE WHEN status IN ('FAILED', 'EXPIRED') THEN 1 ELSE 0 END) as failed_tx,
         SUM(CASE WHEN status = 'COMPLETED' THEN amount ELSE 0 END) as volume
       FROM transactions 
       WHERE user_id = ?
