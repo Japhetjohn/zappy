@@ -201,16 +201,19 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         ctx.wizard.state.data.amount = amount;
 
         try {
+            const settings = storageService.getSettings();
+            const platformFeeRaw = settings.platform_fee || '0.1';
+            const platformFee = parseFloat(platformFeeRaw);
+
             const quote = await switchService.getOnrampQuote(
                 amount,
                 ctx.wizard.state.data.country,
                 ctx.wizard.state.data.asset.id,
-                ctx.wizard.state.data.currency
+                ctx.wizard.state.data.currency,
+                platformFee
             );
             ctx.wizard.state.quote = quote;
-
-            const settings = storageService.getSettings();
-            const platformFee = settings.platform_fee || '0.1';
+            ctx.wizard.state.platformFee = platformFee;
 
             const msg = `
 📊 <b>Review Quote</b>
@@ -222,7 +225,7 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${ctx.wizard.state.data.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> ${platformFee}%
+⚡️ <b>Platform Fee:</b> ${ctx.wizard.state.platformFee}%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -359,6 +362,7 @@ Is this correct?
                 walletAddress: walletAddress,
                 holderName: 'Crypto Buyer',
                 currency: ctx.wizard.state.data.currency,
+                developerFee: ctx.wizard.state.platformFee
             });
 
             // Save transaction to local database

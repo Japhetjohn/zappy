@@ -199,8 +199,10 @@ export const storageService = {
     const successfulTxs = (db.prepare("SELECT COUNT(*) as count FROM transactions WHERE status = 'COMPLETED'").get() as any).count;
     const totalVolume = (db.prepare("SELECT SUM(amount) as sum FROM transactions WHERE status = 'COMPLETED'").get() as any).sum || 0;
 
-    // Profit is 0.1% of total volume
-    const totalProfit = totalVolume * 0.001;
+    // Profit based on dynamic fee
+    const feeRow = db.prepare("SELECT value FROM settings WHERE key = 'platform_fee'").get() as any;
+    const feePercent = feeRow ? parseFloat(feeRow.value) : 0.1;
+    const totalProfit = (totalVolume * feePercent) / 100;
 
     return {
       totalUsers,
@@ -238,13 +240,47 @@ export const storageService = {
         u.id, 
         u.username, 
         u.full_name,
+        u.created_at,
+        u.last_seen,
         COUNT(t.id) as tx_count,
         SUM(CASE WHEN t.status = 'COMPLETED' THEN t.amount ELSE 0 END) as total_volume
       FROM users u
       LEFT JOIN transactions t ON u.id = t.user_id
       GROUP BY u.id
-      HAVING tx_count > 0
-      ORDER BY total_volume DESC
+      ORDER BY total_volume DESC, tx_count DESC, u.id ASC
     `).all() as any[];
+  },
+
+  getUserDetailStats: (userId: number) => {
+    const stats = db.prepare(`
+      SELECT 
+        COUNT(*) as total_tx,
+        SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as success_tx,
+        SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed_tx,
+        SUM(CASE WHEN status = 'COMPLETED' THEN amount ELSE 0 END) as volume
+      FROM transactions 
+      WHERE user_id = ?
+    `).get(userId) as any;
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+
+    return {
+      user,
+      stats: {
+        total: stats.total_tx || 0,
+        success: stats.success_tx || 0,
+        failed: stats.failed_tx || 0,
+        volume: stats.volume || 0
+      }
+    };
+  },
+
+  getUserTransactions: (userId: number, limit: number = 20) => {
+    return db.prepare(`
+      SELECT * FROM transactions 
+      WHERE user_id = ? 
+      ORDER BY created_at DESC 
+      LIMIT ?
+    `).all(userId, limit) as any[];
   },
 };

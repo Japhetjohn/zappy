@@ -55,6 +55,26 @@ app.get('/api/admin/users', adminAuth, (req: Request, res: Response) => {
     }
 });
 
+app.get('/api/admin/users/:id/details', adminAuth, (req: Request, res: Response) => {
+    try {
+        const userId = parseInt(req.params.id as string);
+        const details = storageService.getUserDetailStats(userId);
+        res.json(details);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/users/:id/transactions', adminAuth, (req: Request, res: Response) => {
+    try {
+        const userId = parseInt(req.params.id as string);
+        const txs = storageService.getUserTransactions(userId);
+        res.json(txs);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
     try {
         const settings = storageService.getSettings();
