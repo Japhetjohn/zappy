@@ -62,17 +62,26 @@ export const startScheduler = () => {
                             storageService.updateTransactionStatus(tx.reference, status.status, txHash);
                             logger.info(`Updated status for ${tx.reference} -> ${status.status} (Hash: ${txHash || 'None'})`);
 
-                            // Only notify on critical status changes to avoid spam
-                            // VERIFIED (Confirmed), COMPLETED (Success), FAILED/EXPIRED (Failure)
-                            const notifiableStatuses = ['VERIFIED', 'COMPLETED', 'FAILED', 'EXPIRED'];
+                            // Notify on all meaningful status changes so user stays informed
+                            const notifiableStatuses = ['RECEIVED', 'VERIFIED', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED'];
                             if (notifiableStatuses.includes(status.status)) {
+                                // Extract extra data for rich notifications
+                                const extraData = {
+                                    destinationAmount: status.destination?.amount || status.destinationAmount,
+                                    destinationCurrency: status.destination?.currency || status.destinationCurrency || 'NGN',
+                                    rate: status.rate || status.exchangeRate,
+                                    type: status.type || tx.type
+                                };
+
                                 await notificationService.sendUpdate(
                                     tx.user_id,
                                     tx.reference,
                                     status.status,
                                     tx.asset,
                                     tx.amount,
-                                    status.txHash || status.hash || status.transactionHash
+                                    txHash || status.txHash || status.hash || status.transactionHash,
+                                    undefined,
+                                    extraData
                                 );
                             }
                         }

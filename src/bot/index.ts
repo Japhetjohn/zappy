@@ -93,8 +93,17 @@ import { MAIN_KEYBOARD } from './keyboards';
 
 // START Command moved to top for priority
 
-// 📊 ADMIN STATS COMMAND
+// 📊 ADMIN STATS COMMAND (Restricted)
+const ADMIN_USERNAMES = ['japhet', 'kamalkt6'];
+
 bot.command('stats', async (ctx) => {
+    const username = ctx.from?.username?.toLowerCase();
+
+    if (!username || !ADMIN_USERNAMES.includes(username)) {
+        await ctx.replyWithHTML(`🔒 <b>Access Denied</b>\n\nSorry, this command is for <b>Bitnova Admins</b> only.\n\nIf you need help, type /help or join our community! 🌍`);
+        return;
+    }
+
     const stats = storageService.getStats() as any;
     const msg = `
 📊 <b>Bitnova Africa Platform Stats</b>
