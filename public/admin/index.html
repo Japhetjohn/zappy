@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1400, initial-scale=0.28, shrink-to-fit=yes, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitnova Private Admin | Insights</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -34,6 +34,7 @@
             color: var(--text-main);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
         }
 
         /* --- Login Screen --- */
@@ -145,6 +146,21 @@
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
         }
 
         .hamburger {
@@ -284,6 +300,7 @@
             align-items: center;
             justify-content: center;
             color: var(--sidebar-bg);
+            flex-shrink: 0;
         }
 
         .stat-info h4 {
@@ -305,28 +322,32 @@
             border: 1px solid var(--border);
             padding: 30px;
             animation: fadeIn 0.4s ease;
+            overflow-x: auto;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 700px;
         }
 
         th {
             text-align: left;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 15px;
+            padding: 0 10px 15px 10px;
             color: var(--text-secondary);
             font-size: 12px;
             font-weight: 600;
             text-transform: uppercase;
+            white-space: nowrap;
         }
 
         td {
-            padding: 18px 0;
+            padding: 18px 10px;
             border-bottom: 1px solid #f8f9fc;
             font-size: 14px;
             font-weight: 500;
+            white-space: nowrap;
         }
 
         .user-cell {
@@ -346,6 +367,7 @@
             color: var(--sidebar-bg);
             font-weight: 700;
             font-size: 12px;
+            flex-shrink: 0;
         }
 
         .status-pill {
@@ -445,7 +467,94 @@
             display: none !important;
         }
 
-        /* No mobile-specific styles — desktop view scales to fit all screens */
+        /* --- Responsive: Tablet & Mobile --- */
+        @media (max-width: 1024px) {
+            aside {
+                transform: translateX(-100%);
+                z-index: 2000;
+            }
+
+            aside.active {
+                transform: translateX(0);
+                box-shadow: 5px 0 25px rgba(0, 0, 0, 0.2);
+            }
+
+            main {
+                margin-left: 0;
+                padding: 20px 16px;
+            }
+
+            .mobile-header {
+                display: flex;
+            }
+
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .stat-card {
+                padding: 16px;
+            }
+
+            .stat-info span {
+                font-size: 20px;
+            }
+
+            .header-title h1 {
+                font-size: 22px;
+            }
+
+            .table-card {
+                padding: 16px;
+            }
+
+            .user-details-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-row {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .stat-card {
+                padding: 14px;
+                gap: 10px;
+            }
+
+            .stat-icon {
+                width: 40px;
+                height: 40px;
+            }
+
+            .stat-info h4 {
+                font-size: 11px;
+            }
+
+            .stat-info span {
+                font-size: 16px;
+            }
+
+            .auth-card {
+                padding: 30px 20px;
+                margin: 0 16px;
+            }
+
+            .user-details-stats {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            header {
+                margin-bottom: 20px;
+            }
+
+            .header-title h1 {
+                font-size: 20px;
+            }
+        }
     </style>
 </head>
 
@@ -477,6 +586,9 @@
             <i data-lucide="menu"></i>
         </button>
     </div>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
     <!-- Sidebar -->
     <aside id="main-sidebar">
@@ -1131,12 +1243,18 @@
 
             // Auto-close sidebar on mobile after selection
             if (window.innerWidth <= 1024) {
-                document.getElementById('main-sidebar').classList.remove('active');
+                closeSidebar();
             }
         }
 
         function toggleSidebar() {
             document.getElementById('main-sidebar').classList.toggle('active');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
+        }
+
+        function closeSidebar() {
+            document.getElementById('main-sidebar').classList.remove('active');
+            document.getElementById('sidebar-overlay').classList.remove('active');
         }
 
         function logout() {
