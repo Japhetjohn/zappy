@@ -203,7 +203,6 @@ ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
                 reply_markup: {
                     inline_keyboard: [
                         ...(explorerLink ? [[{ text: '🔍 View on Explorer', url: explorerLink }]] : []),
-                        [{ text: '🔄 Check Status', callback_data: `status_${reference}` }],
                         [{ text: '🏠 Main Menu', callback_data: 'action_menu' }]
                     ]
                 }

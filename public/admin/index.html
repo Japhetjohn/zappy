@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1400">
     <title>Bitnova Private Admin | Insights</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -445,85 +445,7 @@
             display: none !important;
         }
 
-        /* --- Responsive Styles --- */
-        @media (max-width: 1024px) {
-            aside {
-                transform: translateX(-100%);
-                z-index: 2000;
-                /* Ensure on top */
-                width: 250px;
-                /* Slightly smaller on mobile */
-            }
-
-            aside.active {
-                transform: translateX(0);
-                box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
-            }
-
-            main {
-                margin-left: 0 !important;
-                /* Force override */
-                padding: 20px;
-                width: 100%;
-            }
-
-            .mobile-header {
-                display: flex;
-            }
-
-            .stats-row {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .header-title h1 {
-                font-size: 24px;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .stats-row {
-                grid-template-columns: 1fr;
-            }
-
-            .auth-card {
-                padding: 30px 20px;
-            }
-
-            .user-details-stats {
-                grid-template-columns: 1fr;
-            }
-
-            .table-card {
-                padding: 15px;
-                overflow-x: auto;
-            }
-
-            table {
-                min-width: 100%;
-                /* Allow shrinking */
-            }
-
-            /* Hide less important columns on mobile */
-            .hide-mobile {
-                display: none;
-            }
-
-            td,
-            th {
-                padding: 12px 5px;
-                /* Reduce padding */
-                font-size: 13px;
-            }
-
-            .user-cell b {
-                font-size: 13px;
-            }
-
-            .status-pill {
-                padding: 2px 8px;
-                font-size: 9px;
-            }
-        }
+        /* No mobile-specific styles — desktop view scales to fit all screens */
     </style>
 </head>
 
