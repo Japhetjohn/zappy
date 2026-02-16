@@ -30,6 +30,36 @@ exports.bot.use((ctx, next) => {
     logger_1.default.info(`Update: [${updateType}] from [${from}]${text ? ` text: ${text}` : ''}`);
     return next();
 });
+exports.bot.command('start', async (ctx) => {
+    var _a, _b, _c;
+    try {
+        if (ctx.session) {
+            ctx.session.__scenes = undefined;
+        }
+        logger_1.default.info(`Processing /start command for ${(_a = ctx.from) === null || _a === void 0 ? void 0 : _a.id}`);
+        const name = ((_b = ctx.from) === null || _b === void 0 ? void 0 : _b.first_name) || 'Friend';
+        const msg = getWelcomeMsg(name);
+        if (ctx.from) {
+            try {
+                storage_1.storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown', `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim());
+            }
+            catch (err) {
+                logger_1.default.error(`Failed to register user ${(_c = ctx.from) === null || _c === void 0 ? void 0 : _c.id}: ${err.message}`);
+            }
+        }
+        await ctx.replyWithHTML(msg, keyboards_1.MAIN_KEYBOARD);
+    }
+    catch (err) {
+        logger_1.default.error(`Error in /start command: ${err.message}`);
+        logger_1.default.error(err.stack);
+        try {
+            await ctx.reply('⚠️ Something went wrong. Please try again.');
+        }
+        catch (e) {
+            logger_1.default.error('Failed to send error message to user');
+        }
+    }
+});
 exports.bot.use(stage.middleware());
 const getWelcomeMsg = (name) => `
 Hello ${name} 👋
@@ -45,42 +75,90 @@ I'm here to make buying and selling crypto super easy, fast, and secure for you.
 <i>Ready to get started? Tap a button below!</i> 👇
 `;
 const keyboards_1 = require("./keyboards");
-exports.bot.command('start', async (ctx) => {
-    var _a, _b;
-    const name = ((_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name) || 'Friend';
-    const msg = getWelcomeMsg(name);
-    if (ctx.from) {
-        try {
-            storage_1.storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown', `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim());
-        }
-        catch (err) {
-            logger_1.default.error(`Failed to register user ${(_b = ctx.from) === null || _b === void 0 ? void 0 : _b.id}: ${err.message}`);
-        }
-    }
-    return ctx.replyWithHTML(msg, keyboards_1.MAIN_KEYBOARD);
-});
+const ADMIN_USERNAMES = ['japhet', 'kamalkt6'];
 exports.bot.command('stats', async (ctx) => {
-    const stats = storage_1.storageService.getStats();
-    const msg = `
+    var _a, _b;
+    const username = (_b = (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username) === null || _b === void 0 ? void 0 : _b.toLowerCase();
+    if (!username || !ADMIN_USERNAMES.includes(username)) {
+        await ctx.replyWithHTML(`🔒 <b>Access Denied</b>\n\nSorry, this command is for <b>Bitnova Admins</b> only.\n\nIf you need help, type /help or join our community! 🌍`);
+        return;
+    }
+    try {
+        const stats = storage_1.storageService.getStats();
+        const fees = await switch_1.switchService.getDeveloperFees();
+        const msg = `
 📊 <b>Bitnova Africa Platform Stats</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 👥 <b>Total Users:</b> ${stats.totalUsers.toLocaleString()}
-📝 <b>Total Transactions:</b> ${stats.totalTransactions.toLocaleString()}
-✅ <b>Successful Transfers:</b> ${stats.successfulTxs.toLocaleString()}
-💰 <b>Total Volume:</b> $${stats.totalVolume.toLocaleString()}
+📝 <b>Total Transactions:</b> ${stats.allTransactions.toLocaleString()}
+✅ <b>Successful Transfers:</b> ${stats.completedTransactions.toLocaleString()}
+
+💰 <b>Volume USD:</b> $${Number(stats.totalVolumeUSD).toLocaleString()}
+💰 <b>Volume NGN:</b> ₦${Number(stats.totalVolumeNGN).toLocaleString()}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💸 <b>Developer Fees:</b> ${fees.amount.toLocaleString()} ${fees.currency}
 
 <i>Scale: Ready for 20k+ users/day</i> 🌍⚡️
 `;
-    await ctx.replyWithHTML(msg);
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
+            [telegraf_1.Markup.button.callback('💸 Withdraw Fees', 'withdraw_fees')],
+            [telegraf_1.Markup.button.callback('🏠 Main Menu', 'action_menu')]
+        ]));
+    }
+    catch (err) {
+        logger_1.default.error(`Error in /stats command: ${err.message}`);
+        await ctx.reply('❌ Error fetching stats/fees.');
+    }
 });
-exports.bot.action('action_menu', async (ctx) => {
-    var _a;
+exports.bot.action('withdraw_fees', async (ctx) => {
+    var _a, _b;
     if (ctx.callbackQuery)
         await ctx.answerCbQuery().catch(() => { });
-    const name = ((_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name) || 'Friend';
-    await ctx.replyWithHTML(getWelcomeMsg(name), keyboards_1.MAIN_KEYBOARD);
+    const username = (_b = (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username) === null || _b === void 0 ? void 0 : _b.toLowerCase();
+    if (!username || !ADMIN_USERNAMES.includes(username))
+        return;
+    try {
+        const fees = await switch_1.switchService.getDeveloperFees();
+        if (fees.amount <= 0) {
+            return ctx.reply('❌ No fees available to withdraw.');
+        }
+        const msg = `
+💸 <b>Withdraw Developer Fees</b>
+
+Current Balance: <b>${fees.amount} ${fees.currency}</b>
+
+Please enter the <b>Solana Wallet Address</b> where you want to receive your USDC payout:
+`;
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
+            [telegraf_1.Markup.button.callback('❌ Cancel', 'action_menu')]
+        ]));
+        ctx.session.awaiting_withdraw_address = true;
+    }
+    catch (e) {
+        await ctx.reply(`❌ Error: ${e.message}`);
+    }
+});
+exports.bot.on('text', async (ctx, next) => {
+    if (ctx.session.awaiting_withdraw_address) {
+        const address = ctx.message.text.trim();
+        if (address.length < 32)
+            return ctx.reply('❌ Invalid wallet address. Please try again.');
+        delete ctx.session.awaiting_withdraw_address;
+        try {
+            await ctx.reply('⏳ Processing withdrawal...');
+            const result = await switch_1.switchService.withdrawDeveloperFees('base:usdc', address);
+            await ctx.replyWithHTML(`✅ <b>Withdrawal Successful!</b>\n\nReference: <code>${result.reference}</code>\n\nFunds will arrive shortly.`);
+        }
+        catch (e) {
+            await ctx.reply(`❌ Withdrawal Failed: ${e.message}`);
+        }
+        return;
+    }
+    return next();
 });
 exports.bot.action('action_onramp', async (ctx) => {
     if (ctx.callbackQuery)
@@ -140,15 +218,18 @@ exports.bot.action(/^status_(.+)$/, async (ctx) => {
         if (transaction && transaction.status !== status.status) {
             storage_1.storageService.updateTransactionStatus(reference, status.status);
         }
-        const msg = formatStatusMessage(status);
+        const updatedTx = storage_1.storageService.getTransaction(reference);
+        const hash = (updatedTx === null || updatedTx === void 0 ? void 0 : updatedTx.hash) || '';
+        const msg = formatStatusMessage(status, hash);
+        const redoAction = (transaction === null || transaction === void 0 ? void 0 : transaction.type) === 'OFFRAMP' ? 'action_offramp' : 'action_onramp';
         await (0, index_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.callback('🔄 Refresh', `status_${reference}`)],
-            [telegraf_1.Markup.button.callback('📜 Back to History', 'action_history')],
+            [telegraf_1.Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
+            [telegraf_1.Markup.button.callback('🔁 Redo Transaction', redoAction)],
             [telegraf_1.Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));
     }
     catch (e) {
-        await ctx.replyWithHTML('❌ Could not fetch transaction details.');
+        await ctx.replyWithHTML('⏳ <b>Transaction Processing...</b>\n\nPlease wait a moment while we update the status from the network.');
     }
 });
 exports.bot.action(/^confirm_(.+)$/, async (ctx) => {
@@ -174,7 +255,7 @@ exports.bot.action('cancel', async (ctx) => {
     const name = ((_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name) || 'Friend';
     await (0, index_1.safeEdit)(ctx, getWelcomeMsg(name), keyboards_1.MAIN_KEYBOARD);
 });
-function formatStatusMessage(status) {
+function formatStatusMessage(status, hash) {
     const emojiMap = {
         'PENDING': '⏳', 'PROCESSING': '⚙️', 'COMPLETED': '✅', 'FAILED': '❌', 'EXPIRED': '⏰', 'RECEIVED': '📥', 'VERIFIED': '✨'
     };
@@ -190,17 +271,27 @@ ${emoji} <b>Transaction Status</b>
 💰 <b>You Sent/Requested:</b> ${(0, index_1.formatAmount)(status.source.amount)} ${status.source.currency}
 💵 <b>Estimated Payout:</b> ${(0, index_1.formatAmount)(status.destination.amount)} ${status.destination.currency}
 
+${hash ? `🔗 <b>Transaction Hash:</b>\n<code>${hash}</code>` : ''}
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⏱ <i>Updated: ${new Date().toLocaleTimeString()}</i>
 `;
 }
-exports.bot.hears(/\b(hi|hello|hey|yo|start|menu|home|start)\b/i, async (ctx) => {
-    var _a;
-    if (ctx.scene.current)
-        return;
-    const name = ((_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name) || 'Friend';
-    return ctx.replyWithHTML(getWelcomeMsg(name), keyboards_1.MAIN_KEYBOARD);
+exports.bot.hears(/\b(hi|hello|hey|yo|start|menu|home)\b/i, async (ctx) => {
+    var _a, _b;
+    try {
+        logger_1.default.info(`Processing HEARS trigger for ${(_a = ctx.from) === null || _a === void 0 ? void 0 : _a.id}. Scene: ${ctx.scene.current ? ctx.scene.current.id : 'none'}`);
+        if (ctx.scene.current) {
+            logger_1.default.info(`Returning because user is in scene: ${ctx.scene.current.id}`);
+            return;
+        }
+        const name = ((_b = ctx.from) === null || _b === void 0 ? void 0 : _b.first_name) || 'Friend';
+        await ctx.replyWithHTML(getWelcomeMsg(name), keyboards_1.MAIN_KEYBOARD);
+    }
+    catch (err) {
+        logger_1.default.error(`Error in hears handler: ${err.message}`);
+    }
 });
 exports.bot.hears(/\b(buy|send|onramp|deposit|crypto)\b/i, async (ctx) => {
     if (ctx.scene.current)
@@ -274,10 +365,10 @@ Select a transaction to see details:
         const buttons = history.map(tx => {
             var _a;
             const date = new Date(tx.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-            const typeEmoji = tx.type === 'ONRAMP' ? '💰' : '💸';
+            const typeLabel = tx.type === 'ONRAMP' ? 'BUY 💰' : 'SELL 💸';
             const statusEmoji = emojiMap[tx.status] || 'ℹ️';
             const assetName = ((_a = tx.asset.split(':')[1]) === null || _a === void 0 ? void 0 : _a.toUpperCase()) || tx.asset.toUpperCase();
-            return [telegraf_1.Markup.button.callback(`${statusEmoji} ${typeEmoji} ${tx.amount} ${assetName} • ${date}`, `status_${tx.reference}`)];
+            return [telegraf_1.Markup.button.callback(`${statusEmoji} ${typeLabel} ${tx.amount} ${assetName} • ${date}`, `status_${tx.reference}`)];
         });
         buttons.push([telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]);
         await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(buttons));
@@ -306,7 +397,7 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 • Get cash in your bank account instantly! 💸
 
 <b>Need human help?</b>
-Just contact my team at <a href="https://t.me/Official_johny01">@Official_johny01</a> and they'll sort you out! 🤝
+Just join our community group at <a href="https://t.me/bitnova_africa">@bitnova_africa</a> and our team will sort you out! 🌍🤝
 `;
     await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
@@ -382,4 +473,13 @@ const handleShutdown = (signal) => {
 };
 process.once('SIGINT', () => handleShutdown('SIGINT'));
 process.once('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('uncaughtException', (err) => {
+    logger_1.default.error('❌ UNCAUGHT EXCEPTION:');
+    logger_1.default.error(err.message);
+    logger_1.default.error(err.stack || '');
+});
+process.on('unhandledRejection', (reason, promise) => {
+    logger_1.default.error('❌ UNHANDLED REJECTION:');
+    logger_1.default.error(reason);
+});
 //# sourceMappingURL=index.js.map

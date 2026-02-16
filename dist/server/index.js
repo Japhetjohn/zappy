@@ -5,11 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startServer = startServer;
 const express_1 = __importDefault(require("express"));
-const bot_1 = require("../bot");
 const storage_1 = require("../services/storage");
+const switch_1 = require("../services/switch");
+const notification_1 = require("../services/notification");
 const config_1 = require("../config");
 const logger_1 = __importDefault(require("../utils/logger"));
-const utils_1 = require("../utils");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.get('/health', (req, res) => {
@@ -18,8 +18,147 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
     res.status(200).send('Bitnova Africa Bot Server is Running ⚡️');
 });
+const adminAuth = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${config_1.config.adminPassword}`) {
+        logger_1.default.warn(`Unauthorized admin access attempt from ${req.ip}`);
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    next();
+};
+app.get('/api/admin/stats', adminAuth, async (req, res) => {
+    try {
+        const rates = await switch_1.switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
+        const rate = (rates.buy + rates.sell) / 2 || 1500;
+        const stats = storage_1.storageService.getStats(rate);
+        try {
+            const fees = await switch_1.switchService.getDeveloperFees();
+            stats.developerFees = fees;
+        }
+        catch (e) {
+            logger_1.default.warn(`Failed to fetch developer fees for stats: ${e.message}`);
+            stats.developerFees = { amount: 0, currency: 'USDC' };
+        }
+        res.json(stats);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/transactions', adminAuth, (req, res) => {
+    try {
+        const txs = storage_1.storageService.getAdminTransactions();
+        res.json(txs);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/transactions/:reference', adminAuth, (req, res) => {
+    try {
+        const reference = req.params.reference;
+        const tx = storage_1.storageService.getTransactionDetails(reference);
+        if (!tx)
+            return res.status(404).json({ error: 'Transaction not found' });
+        return res.json(tx);
+    }
+    catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req, res) => {
+    try {
+        const reference = req.params.reference;
+        const tx = storage_1.storageService.getTransaction(reference);
+        if (!tx)
+            return res.status(404).json({ error: 'Transaction not found' });
+        logger_1.default.info(`🚨 Admin manual confirmation triggered for ${reference}`);
+        const result = await switch_1.switchService.confirmDeposit(reference);
+        storage_1.storageService.updateTransactionStatus(reference, result.status || 'PROCESSING');
+        return res.json({ success: true, data: result });
+    }
+    catch (e) {
+        logger_1.default.error(`Manual confirmation failed for ${req.params.reference}: ${e.message}`);
+        return res.status(500).json({ error: e.message });
+    }
+});
+app.post('/api/admin/transactions/:reference/cancel', adminAuth, async (req, res) => {
+    try {
+        const reference = req.params.reference;
+        const tx = storage_1.storageService.getTransaction(reference);
+        if (!tx)
+            return res.status(404).json({ error: 'Transaction not found' });
+        storage_1.storageService.updateTransactionStatus(reference, 'CANCELLED');
+        await notification_1.notificationService.sendUpdate(tx.user_id, reference, 'CANCELLED', tx.asset, tx.amount, undefined, 'Transaction cancelled by admin.');
+        return res.json({ success: true });
+    }
+    catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/users', adminAuth, async (req, res) => {
+    try {
+        const rates = await switch_1.switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
+        const rate = (rates.buy + rates.sell) / 2 || 1500;
+        const users = storage_1.storageService.getUserProcessingStats(rate);
+        res.json(users);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/users/:id/details', adminAuth, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const rates = await switch_1.switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
+        const rate = (rates.buy + rates.sell) / 2 || 1500;
+        const details = storage_1.storageService.getUserDetailStats(userId, rate);
+        res.json(details);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/users/:id/transactions', adminAuth, (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const txs = storage_1.storageService.getUserTransactions(userId);
+        res.json(txs);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/settings', adminAuth, (req, res) => {
+    try {
+        const settings = storage_1.storageService.getSettings();
+        res.json(settings);
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.post('/api/admin/settings', adminAuth, (req, res) => {
+    try {
+        const { key, value } = req.body;
+        if (!key || value === undefined)
+            throw new Error('Key and value required');
+        storage_1.storageService.updateSetting(key, value.toString());
+        res.json({ success: true });
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+const path_1 = __importDefault(require("path"));
+const publicPath = path_1.default.resolve(process.cwd(), 'public');
+logger_1.default.info(`🚨 SERVING STATIC FROM: ${publicPath}`);
+app.use('/admin', express_1.default.static(path_1.default.join(publicPath, 'admin')));
+app.get(['/admin', '/admin/*'], (req, res) => {
+    res.sendFile(path_1.default.join(publicPath, 'admin/index.html'));
+});
 app.post('/webhook', async (req, res) => {
-    var _a;
     const payload = req.body;
     logger_1.default.info(`Incoming Webhook: ${JSON.stringify(payload)}`);
     try {
@@ -32,57 +171,12 @@ app.post('/webhook', async (req, res) => {
             logger_1.default.warn(`Webhook received for unknown transaction: ${reference}`);
             return res.status(404).send({ success: false, message: 'Transaction not found' });
         }
-        storage_1.storageService.updateTransactionStatus(reference, status);
-        const userId = transaction.user_id;
-        const emojiMap = {
-            'RECEIVED': '📥',
-            'PROCESSING': '⚙️',
-            'COMPLETED': '✅',
-            'FAILED': '❌',
-            'EXPIRED': '⏰',
-            'VERIFIED': 'zp_verified'
-        };
-        const emoji = emojiMap[status] || 'ℹ️';
-        let statusText = status;
-        let additionalInfo = '';
-        if (status === 'VERIFIED') {
-            statusText = '✨ Verified';
-            additionalInfo = 'Your payment has been verified and is being processed.';
-        }
-        else if (status === 'PROCESSING') {
-            statusText = '⚙️ Processing';
-            additionalInfo = 'We are sending your funds to the destination.';
-        }
-        else if (status === 'COMPLETED') {
-            statusText = '✅ Completed';
-            additionalInfo = 'Transaction successfully finished!';
-        }
         const txHash = payload.hash || payload.txHash || payload.transactionHash || payload.tx_hash;
-        const explorerLink = txHash ? (0, utils_1.getExplorerLink)(transaction.asset, txHash) : '';
-        const notifyMsg = `
-${emoji} <b>Transaction Update</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📋 <b>Ref:</b> <code>${reference}</code>
-🚦 <b>Status:</b> <b>${statusText}</b>
-${message ? `💬 <b>Note:</b> ${message}` : ''}
-${additionalInfo ? `ℹ️ ${additionalInfo}` : ''}
-
-💰 <b>Amount:</b> ${transaction.amount} ${((_a = transaction.asset.split(':')[1]) === null || _a === void 0 ? void 0 : _a.toUpperCase()) || transaction.asset}
-
-${explorerLink ? `🔗 <b>Blockchain Hash:</b>\n<a href="${explorerLink}">${txHash}</a>` : ''}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-`;
-        const extra = { parse_mode: 'HTML', disable_web_page_preview: true };
-        if (explorerLink) {
-            extra.reply_markup = {
-                inline_keyboard: [[{ text: '🔍 View on Explorer', url: explorerLink }]]
-            };
+        storage_1.storageService.updateTransactionStatus(reference, status, txHash);
+        const notifiableStatuses = ['VERIFIED', 'COMPLETED', 'FAILED', 'EXPIRED'];
+        if (notifiableStatuses.includes(status)) {
+            await notification_1.notificationService.sendUpdate(transaction.user_id, reference, status, transaction.asset, transaction.amount, txHash, message);
         }
-        await bot_1.bot.telegram.sendMessage(userId, notifyMsg, extra);
-        logger_1.default.info(`Notified user ${userId} about transaction ${reference} status ${status}`);
         return res.send({ success: true });
     }
     catch (error) {
@@ -90,21 +184,23 @@ ${explorerLink ? `🔗 <b>Blockchain Hash:</b>\n<a href="${explorerLink}">${txHa
         return res.status(500).send({ success: false, message: error.message });
     }
 });
+const scheduler_1 = require("../services/scheduler");
 function startServer() {
     const port = config_1.config.port;
     app.listen(port, () => {
         logger_1.default.info(`🌐 Webhook server listening on port ${port}`);
+        (0, scheduler_1.startScheduler)();
         const selfUrl = config_1.config.baseUrl || `http://localhost:${port}`;
+        logger_1.default.info(`⏰ Self-ping scheduled for: ${selfUrl} (every 60s)`);
+        const axios = require('axios');
         setInterval(async () => {
             try {
-                const axios = require('axios');
                 await axios.get(`${selfUrl}/health`);
-                logger_1.default.debug(`💓 Heartbeat: Self-ping to ${selfUrl} successful`);
             }
             catch (e) {
                 logger_1.default.warn(`💓 Heartbeat failed for ${selfUrl}: ${e.message}`);
             }
-        }, 300000);
+        }, 60000);
     });
 }
 //# sourceMappingURL=index.js.map

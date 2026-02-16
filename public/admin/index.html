@@ -901,8 +901,12 @@
             <div id="modal-actions"
                 style="margin-top: 25px; border-top: 1px solid var(--border); padding-top: 20px; display: none;">
                 <button onclick="cancelCurrentTransaction()"
-                    style="width: 100%; background: #fee2e2; color: #ef4444; border: none; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer;">
+                    style="width: 100%; background: #fee2e2; color: #ef4444; border: none; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; margin-top: 10px;">
                     🚫 Cancel Transaction
+                </button>
+                <button id="btn-manual-confirm" onclick="confirmCurrentTransaction()"
+                    style="display: none; width: 100%; background: #dcfce7; color: #16a34a; border: none; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; margin-top: 10px;">
+                    ✅ Force Confirm Deposit
                 </button>
             </div>
 
@@ -931,6 +935,34 @@
                 }
             } catch (e) {
                 alert('Error cancelling transaction');
+            }
+        }
+
+        async function confirmCurrentTransaction() {
+            if (!currentTxRef) return;
+            if (!confirm('Are you sure you want to MANUALLY confirm this deposit? Only do this if you have verified the funds arrived.')) return;
+
+            try {
+                const btn = document.getElementById('btn-manual-confirm');
+                btn.innerText = '⌛ Confirming...';
+                btn.disabled = true;
+
+                const headers = { 'Authorization': `Bearer ${adminKey}`, 'Content-Type': 'application/json' };
+                const res = await fetch(`/api/admin/transactions/${currentTxRef}/confirm`, { method: 'POST', headers });
+                const json = await res.json();
+
+                if (json.success) {
+                    alert('Transaction confirmed successfully!');
+                    closeTxModal();
+                    fetchData(); // Refresh list
+                } else {
+                    alert('Failed: ' + (json.error || 'Unknown error'));
+                    btn.innerText = '✅ Force Confirm Deposit';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                alert('Error confirming transaction');
+                document.getElementById('btn-manual-confirm').disabled = false;
             }
         }
 
@@ -963,6 +995,19 @@
 
                 document.getElementById('modal-date').innerText = new Date(tx.created_at).toLocaleString();
                 document.getElementById('modal-updated').innerText = tx.updated_at ? new Date(tx.updated_at).toLocaleString() : '-';
+
+                currentTxRef = tx.reference;
+
+                // Show actions only for relevant statuses
+                const modalActions = document.getElementById('modal-actions');
+                const confirmBtn = document.getElementById('btn-manual-confirm');
+
+                if (tx.status === 'PENDING' || tx.status === 'AWAITING_DEPOSIT' || tx.status === 'PROCESSING') {
+                    modalActions.style.display = 'block';
+                    confirmBtn.style.display = (tx.status === 'AWAITING_DEPOSIT' || tx.status === 'PROCESSING') ? 'block' : 'none';
+                } else {
+                    modalActions.style.display = 'none';
+                }
 
                 const hashLink = document.getElementById('modal-hash-link');
                 if (tx.hash) {
@@ -1038,9 +1083,15 @@
                     const volNGN = Number(stats.totalVolumeNGN || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
                     document.getElementById('stat-total-volume').innerText = `$${volUSD} | ₦${volNGN}`;
 
-                    const earnedUSD = Number(stats.totalEarnedUSD || 0).toLocaleString(undefined, { maximumFractionDigits: 3 });
-                    const earnedNGN = Number(stats.totalEarnedNGN || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
-                    document.getElementById('stat-total-earned').innerText = `$${earnedUSD} | ₦${earnedNGN}`;
+                    // Use Developer Fees from Switch API if available
+                    if (stats.developerFees) {
+                        const earnedUSDC = Number(stats.developerFees.amount || 0).toLocaleString(undefined, { maximumFractionDigits: 3 });
+                        document.getElementById('stat-total-earned').innerText = `${earnedUSDC} ${stats.developerFees.currency || 'USDC'}`;
+                    } else {
+                        const earnedUSD = Number(stats.totalEarnedUSD || 0).toLocaleString(undefined, { maximumFractionDigits: 3 });
+                        const earnedNGN = Number(stats.totalEarnedNGN || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
+                        document.getElementById('stat-total-earned').innerText = `$${earnedUSD} | ₦${earnedNGN}`;
+                    }
 
                     document.getElementById('stat-total-txs').innerText = stats.allTransactions || 0;
                     document.getElementById('stat-completed-txs').innerText = stats.completedTransactions || 0;

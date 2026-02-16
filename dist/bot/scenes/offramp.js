@@ -181,8 +181,12 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
     const amount = parseFloat(text.replace(/,/g, ''));
     ctx.wizard.state.data.amount = amount;
     try {
-        const quote = await switch_1.switchService.getOfframpQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency);
+        const settings = storage_1.storageService.getSettings();
+        const platformFeeRaw = settings.platform_fee || '0.1';
+        const platformFee = parseFloat(platformFeeRaw);
+        const quote = await switch_1.switchService.getOfframpQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
         ctx.wizard.state.quote = quote;
+        ctx.wizard.state.platformFee = platformFee;
         const msg = `
 📊 <b>Review Quote</b>
 
@@ -193,7 +197,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${(0, utils_1.formatAmount)(quote.rate)} ${quote.destination.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> 0.1%
+⚡️ <b>Platform Fee:</b> ${ctx.wizard.state.platformFee}%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -250,6 +254,8 @@ ${userMessage}
 Type your <b>Bank Account Number</b> below:
 
 <i>Example: 0123456789</i>
+
+${saved.length > 0 ? '\n<b>Or choose from saved account below 👇</b>' : ''}
 `;
     const allButtons = [
         ...(ctx.from ? storage_1.storageService.getBeneficiaries(ctx.from.id).filter(b => b.bankCode && b.accountNumber).slice(0, 3).map(b => telegraf_1.Markup.button.callback(`👤 ${b.holderName} (${b.bankName})`, `use_saved:${b.id}`)) : []),
@@ -429,7 +435,8 @@ Choose your receiving bank:
                 bankCode: ctx.wizard.state.data.beneficiary.bankCode,
                 accountNumber: ctx.wizard.state.data.beneficiary.accountNumber,
                 holderName: ctx.wizard.state.data.beneficiary.holderName
-            }
+            },
+            developerFee: ctx.wizard.state.platformFee
         });
         try {
             storage_1.storageService.addBeneficiary({
@@ -442,7 +449,14 @@ Choose your receiving bank:
         }
         catch (e) {
         }
-        storage_1.storageService.addTransaction(ctx.from.id, result.reference, 'OFFRAMP', ctx.wizard.state.data.asset.id, ctx.wizard.state.data.amount);
+        storage_1.storageService.addTransaction({
+            userId: ctx.from.id,
+            reference: result.reference,
+            type: 'OFFRAMP',
+            asset: ctx.wizard.state.data.asset.id,
+            amount: ctx.wizard.state.data.amount,
+            currency: ctx.wizard.state.data.currency
+        });
         const msg = `
 ✅ <b>Order Created!</b>
 

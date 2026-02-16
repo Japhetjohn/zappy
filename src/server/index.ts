@@ -34,7 +34,17 @@ app.get('/api/admin/stats', adminAuth, async (req: Request, res: Response) => {
     try {
         const rates = await switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
         const rate = (rates.buy + rates.sell) / 2 || 1500;
-        const stats = storageService.getStats(rate);
+        const stats = storageService.getStats(rate) as any;
+
+        // Fetch real-time developer fees from Switch API
+        try {
+            const fees = await switchService.getDeveloperFees();
+            stats.developerFees = fees;
+        } catch (e) {
+            logger.warn(`Failed to fetch developer fees for stats: ${e.message}`);
+            stats.developerFees = { amount: 0, currency: 'USDC' };
+        }
+
         res.json(stats);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
@@ -50,18 +60,39 @@ app.get('/api/admin/transactions', adminAuth, (req: Request, res: Response) => {
     }
 });
 
-app.get('/api/admin/transactions/:reference', adminAuth, (req: Request, res: Response) => {
+app.get('/api/admin/transactions/:reference', adminAuth, (req: Request, res: Response): any => {
     try {
         const reference = req.params.reference;
         const tx = storageService.getTransactionDetails(reference);
         if (!tx) return res.status(404).json({ error: 'Transaction not found' });
-        res.json(tx);
+        return res.json(tx);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: e.message });
     }
 });
 
-app.post('/api/admin/transactions/:reference/cancel', adminAuth, async (req: Request, res: Response) => {
+app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req: Request, res: Response): Promise<any> => {
+    try {
+        const reference = req.params.reference;
+        const tx = storageService.getTransaction(reference);
+        if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+        logger.info(`🚨 Admin manual confirmation triggered for ${reference}`);
+
+        // Trigger manual confirmation via Switch API
+        const result = await switchService.confirmDeposit(reference);
+
+        // Update status locally to PROCESSING if Switch confirms
+        storageService.updateTransactionStatus(reference, result.status || 'PROCESSING');
+
+        return res.json({ success: true, data: result });
+    } catch (e: any) {
+        logger.error(`Manual confirmation failed for ${req.params.reference}: ${e.message}`);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/transactions/:reference/cancel', adminAuth, async (req: Request, res: Response): Promise<any> => {
     try {
         const reference = req.params.reference;
         const tx = storageService.getTransaction(reference);
@@ -81,9 +112,9 @@ app.post('/api/admin/transactions/:reference/cancel', adminAuth, async (req: Req
             'Transaction cancelled by admin.'
         );
 
-        res.json({ success: true });
+        return res.json({ success: true });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: e.message });
     }
 });
 

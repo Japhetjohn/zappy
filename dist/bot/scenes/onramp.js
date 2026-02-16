@@ -172,8 +172,12 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
     const amount = parseFloat(text.replace(/,/g, ''));
     ctx.wizard.state.data.amount = amount;
     try {
-        const quote = await switch_1.switchService.getOnrampQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency);
+        const settings = storage_1.storageService.getSettings();
+        const platformFeeRaw = settings.platform_fee || '0.1';
+        const platformFee = parseFloat(platformFeeRaw);
+        const quote = await switch_1.switchService.getOnrampQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
         ctx.wizard.state.quote = quote;
+        ctx.wizard.state.platformFee = platformFee;
         const msg = `
 📊 <b>Review Quote</b>
 
@@ -184,7 +188,7 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${(0, utils_1.formatAmount)(quote.rate)} ${ctx.wizard.state.data.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> 0.1%
+⚡️ <b>Platform Fee:</b> ${ctx.wizard.state.platformFee}%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -248,6 +252,7 @@ Paste your wallet address below:
     ]));
     return ctx.wizard.next();
 }, async (ctx) => {
+    var _a;
     if (ctx.callbackQuery) {
         const data = ctx.callbackQuery.data;
         if (ctx.callbackQuery)
@@ -262,7 +267,17 @@ Paste your wallet address below:
             ctx.wizard.next();
             return ctx.wizard.steps[ctx.wizard.cursor](ctx);
         }
+        return;
     }
+    const text = (_a = ctx.message) === null || _a === void 0 ? void 0 : _a.text;
+    if (!text) {
+        return ctx.reply('⚠️ Please enter a valid wallet address.');
+    }
+    const trimmedAddress = text.trim();
+    if (trimmedAddress.length < 20) {
+        return ctx.reply('⚠️ That doesn\'t look like a valid wallet address. Please try again.');
+    }
+    ctx.wizard.state.data.walletAddress = trimmedAddress;
     const msg = `
 ✅ <b>Confirm Order</b>
 
@@ -301,10 +316,18 @@ Is this correct?
             country: ctx.wizard.state.data.country,
             asset: ctx.wizard.state.data.asset.id,
             walletAddress: walletAddress,
-            holderName: 'Crypto Buyer',
+            holderName: 'Bitnova User',
             currency: ctx.wizard.state.data.currency,
+            developerFee: ctx.wizard.state.platformFee
         });
-        storage_1.storageService.addTransaction(ctx.from.id, result.reference, 'ONRAMP', ctx.wizard.state.data.asset.id, ctx.wizard.state.data.amount);
+        storage_1.storageService.addTransaction({
+            userId: ctx.from.id,
+            reference: result.reference,
+            type: 'ONRAMP',
+            asset: ctx.wizard.state.data.asset.id,
+            amount: ctx.wizard.state.data.amount,
+            currency: ctx.wizard.state.data.currency
+        });
         const msg = `
 ✅ <b>Order Created!</b>
 

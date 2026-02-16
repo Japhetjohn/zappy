@@ -104,8 +104,11 @@ bot.command('stats', async (ctx) => {
         return;
     }
 
-    const stats = storageService.getStats() as any;
-    const msg = `
+    try {
+        const stats = storageService.getStats() as any;
+        const fees = await switchService.getDeveloperFees();
+
+        const msg = `
 📊 <b>Bitnova Africa Platform Stats</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -117,18 +120,74 @@ bot.command('stats', async (ctx) => {
 💰 <b>Volume USD:</b> $${Number(stats.totalVolumeUSD).toLocaleString()}
 💰 <b>Volume NGN:</b> ₦${Number(stats.totalVolumeNGN).toLocaleString()}
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💸 <b>Developer Fees:</b> ${fees.amount.toLocaleString()} ${fees.currency}
+
 <i>Scale: Ready for 20k+ users/day</i> 🌍⚡️
 `;
-    await ctx.replyWithHTML(msg);
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            [Markup.button.callback('💸 Withdraw Fees', 'withdraw_fees')],
+            [Markup.button.callback('🏠 Main Menu', 'action_menu')]
+        ]));
+    } catch (err: any) {
+        logger.error(`Error in /stats command: ${err.message}`);
+        await ctx.reply('❌ Error fetching stats/fees.');
+    }
 });
 
 // ═══════════════════════════════════════════════════════════
 // 📌 ACTION HANDLERS
 // ═══════════════════════════════════════════════════════════
-bot.action('action_menu', async (ctx) => {
+bot.action('withdraw_fees', async (ctx): Promise<any> => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
-    const name = ctx.from?.first_name || 'Friend';
-    await ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
+    const username = ctx.from?.username?.toLowerCase();
+    if (!username || !ADMIN_USERNAMES.includes(username)) return;
+
+    try {
+        const fees = await switchService.getDeveloperFees();
+        if (fees.amount <= 0) {
+            return await ctx.reply('❌ No fees available to withdraw.');
+        }
+
+        const msg = `
+💸 <b>Withdraw Developer Fees</b>
+
+Current Balance: <b>${fees.amount} ${fees.currency}</b>
+
+Please enter the <b>Solana Wallet Address</b> where you want to receive your USDC payout:
+`;
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            [Markup.button.callback('❌ Cancel', 'action_menu')]
+        ]));
+
+        // Simple way to handle the next message as address
+        // For a more robust way, use a wizard, but for admin this is fine
+        (ctx.session as any).awaiting_withdraw_address = true;
+        return;
+    } catch (e: any) {
+        return await ctx.reply(`❌ Error: ${e.message}`);
+    }
+});
+
+// Add handler for withdrawal address
+bot.on('text', async (ctx, next) => {
+    if ((ctx.session as any).awaiting_withdraw_address) {
+        const address = ctx.message.text.trim();
+        if (address.length < 32) return ctx.reply('❌ Invalid wallet address. Please try again.');
+
+        delete (ctx.session as any).awaiting_withdraw_address;
+
+        try {
+            await ctx.reply('⏳ Processing withdrawal...');
+            const result = await switchService.withdrawDeveloperFees('base:usdc', address);
+            await ctx.replyWithHTML(`✅ <b>Withdrawal Successful!</b>\n\nReference: <code>${result.reference}</code>\n\nFunds will arrive shortly.`);
+        } catch (e: any) {
+            await ctx.reply(`❌ Withdrawal Failed: ${e.message}`);
+        }
+        return;
+    }
+    return next();
 });
 
 bot.action('action_onramp', async (ctx) => {

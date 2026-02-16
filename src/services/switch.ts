@@ -287,6 +287,38 @@ export class SwitchService {
             throw error;
         }
     }
+
+    async getDeveloperFees(): Promise<{ amount: number, currency: string }> {
+        try {
+            const response = await this.api.get('/developer/fees');
+            if (response.data.success) {
+                return response.data.data;
+            }
+            throw new Error(response.data.message);
+        } catch (error: any) {
+            console.error('Error fetching developer fees:', error.response?.data || error.message);
+            throw error;
+        }
+    }
+
+    async withdrawDeveloperFees(asset: string, walletAddress: string): Promise<any> {
+        try {
+            const payload = {
+                asset,
+                beneficiary: {
+                    wallet_address: walletAddress
+                }
+            };
+            const response = await this.api.post('/withdraw', payload);
+            if (response.data.success) {
+                return response.data.data;
+            }
+            throw new Error(response.data.message);
+        } catch (error: any) {
+            console.error('Error withdrawing developer fees:', error.response?.data || error.message);
+            throw error;
+        }
+    }
 }
 
 export const switchService = new SwitchService();

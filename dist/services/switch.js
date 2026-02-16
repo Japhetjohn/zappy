@@ -100,7 +100,7 @@ class SwitchService {
             throw new Error(finalMessage);
         }
     }
-    async getOnrampQuote(amount, country, asset, currency = 'NGN') {
+    async getOnrampQuote(amount, country, asset, currency = 'NGN', developerFee) {
         var _a;
         try {
             const response = await this.api.post('/onramp/quote', {
@@ -109,7 +109,7 @@ class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: config_1.config.developerFee,
+                developer_fee: developerFee !== undefined ? developerFee : config_1.config.developerFee,
             });
             if (response.data.success) {
                 return response.data.data;
@@ -124,9 +124,12 @@ class SwitchService {
     async initiateOnramp(data) {
         var _a;
         try {
-            const sanitizedName = data.holderName
-                ? data.holderName.replace(/[^a-zA-Z\s'-]/g, '').trim() || 'Crypto Buyer'
-                : 'Crypto Buyer';
+            let sanitizedName = data.holderName
+                ? data.holderName.replace(/[^a-zA-Z\s'-]/g, '').trim()
+                : '';
+            if (!sanitizedName || sanitizedName.length < 2) {
+                sanitizedName = 'Bitnova Customer';
+            }
             const payload = {
                 amount: data.amount,
                 country: data.country,
@@ -139,7 +142,7 @@ class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: config_1.config.developerFee,
+                developer_fee: data.developerFee !== undefined ? data.developerFee : config_1.config.developerFee,
                 developer_wallet: config_1.config.developerWallet || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV',
             };
             if (data.senderBankCode && data.senderAccountNumber) {
@@ -161,7 +164,7 @@ class SwitchService {
             throw error;
         }
     }
-    async getOfframpQuote(amount, country, asset, currency = 'NGN') {
+    async getOfframpQuote(amount, country, asset, currency = 'NGN', developerFee) {
         var _a;
         try {
             const response = await this.api.post('/offramp/quote', {
@@ -170,7 +173,7 @@ class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: config_1.config.developerFee,
+                developer_fee: developerFee !== undefined ? developerFee : config_1.config.developerFee,
             });
             if (response.data.success) {
                 return response.data.data;
@@ -198,7 +201,7 @@ class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: config_1.config.developerFee,
+                developer_fee: data.developerFee !== undefined ? data.developerFee : config_1.config.developerFee,
                 developer_wallet: config_1.config.developerWallet
             });
             if (response.data.success) {
@@ -241,10 +244,13 @@ class SwitchService {
             return { buy: 0, sell: 0 };
         }
     }
-    async confirmDeposit(reference) {
+    async confirmDeposit(reference, hash) {
         var _a;
         try {
-            const response = await this.api.post('/confirm', { reference });
+            const payload = { reference };
+            if (hash)
+                payload.hash = hash;
+            const response = await this.api.post('/confirm', payload);
             if (response.data.success) {
                 return response.data.data;
             }
@@ -252,6 +258,40 @@ class SwitchService {
         }
         catch (error) {
             console.error('Error confirming deposit:', ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+            throw error;
+        }
+    }
+    async getDeveloperFees() {
+        var _a;
+        try {
+            const response = await this.api.get('/developer/fees');
+            if (response.data.success) {
+                return response.data.data;
+            }
+            throw new Error(response.data.message);
+        }
+        catch (error) {
+            console.error('Error fetching developer fees:', ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+            throw error;
+        }
+    }
+    async withdrawDeveloperFees(asset, walletAddress) {
+        var _a;
+        try {
+            const payload = {
+                asset,
+                beneficiary: {
+                    wallet_address: walletAddress
+                }
+            };
+            const response = await this.api.post('/withdraw', payload);
+            if (response.data.success) {
+                return response.data.data;
+            }
+            throw new Error(response.data.message);
+        }
+        catch (error) {
+            console.error('Error withdrawing developer fees:', ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
             throw error;
         }
     }
