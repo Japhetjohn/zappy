@@ -647,7 +647,7 @@
                             Total</div>
                     </div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" style="position: relative;">
                     <div class="stat-icon"><i data-lucide="dollar-sign"></i></div>
                     <div class="stat-info">
                         <h4>Platform Earnings</h4>
@@ -655,6 +655,10 @@
                         <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Dynamic Fee Income
                         </div>
                     </div>
+                    <button class="refresh-btn" onclick="fetchData()" title="Refresh Earnings"
+                        style="position: absolute; top: 10px; right: 10px; padding: 5px; width: 30px; height: 30px;">
+                        <i data-lucide="rotate-cw" style="width: 14px; height: 14px;"></i>
+                    </button>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i data-lucide="refresh-ccw"></i></div>
