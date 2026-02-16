@@ -62,7 +62,7 @@ app.get('/api/admin/transactions', adminAuth, (req: Request, res: Response) => {
 
 app.get('/api/admin/transactions/:reference', adminAuth, (req: Request, res: Response): any => {
     try {
-        const reference = req.params.reference;
+        const reference = req.params.reference as string;
         const tx = storageService.getTransactionDetails(reference);
         if (!tx) return res.status(404).json({ error: 'Transaction not found' });
         return res.json(tx);
@@ -73,7 +73,7 @@ app.get('/api/admin/transactions/:reference', adminAuth, (req: Request, res: Res
 
 app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req: Request, res: Response): Promise<any> => {
     try {
-        const reference = req.params.reference;
+        const reference = req.params.reference as string;
         const tx = storageService.getTransaction(reference);
         if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
@@ -94,7 +94,7 @@ app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req: Re
 
 app.post('/api/admin/transactions/:reference/cancel', adminAuth, async (req: Request, res: Response): Promise<any> => {
     try {
-        const reference = req.params.reference;
+        const reference = req.params.reference as string;
         const tx = storageService.getTransaction(reference);
         if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 

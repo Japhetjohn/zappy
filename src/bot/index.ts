@@ -261,6 +261,7 @@ bot.action(/^status_(.+)$/, async (ctx) => {
 
         await safeEdit(ctx, msg, Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
+            [Markup.button.url('📞 Contact Support', 'https://t.me/bitnova_africa')],
             [Markup.button.callback('🔁 Redo Transaction', redoAction)],
             [Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));

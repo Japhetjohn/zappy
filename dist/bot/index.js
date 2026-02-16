@@ -124,7 +124,7 @@ exports.bot.action('withdraw_fees', async (ctx) => {
     try {
         const fees = await switch_1.switchService.getDeveloperFees();
         if (fees.amount <= 0) {
-            return ctx.reply('❌ No fees available to withdraw.');
+            return await ctx.reply('❌ No fees available to withdraw.');
         }
         const msg = `
 💸 <b>Withdraw Developer Fees</b>
@@ -137,9 +137,10 @@ Please enter the <b>Solana Wallet Address</b> where you want to receive your USD
             [telegraf_1.Markup.button.callback('❌ Cancel', 'action_menu')]
         ]));
         ctx.session.awaiting_withdraw_address = true;
+        return;
     }
     catch (e) {
-        await ctx.reply(`❌ Error: ${e.message}`);
+        return await ctx.reply(`❌ Error: ${e.message}`);
     }
 });
 exports.bot.on('text', async (ctx, next) => {
