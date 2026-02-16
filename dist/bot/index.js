@@ -225,6 +225,7 @@ exports.bot.action(/^status_(.+)$/, async (ctx) => {
         const redoAction = (transaction === null || transaction === void 0 ? void 0 : transaction.type) === 'OFFRAMP' ? 'action_offramp' : 'action_onramp';
         await (0, index_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
+            [telegraf_1.Markup.button.url('📞 Contact Support', 'https://t.me/bitnova_africa')],
             [telegraf_1.Markup.button.callback('🔁 Redo Transaction', redoAction)],
             [telegraf_1.Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));

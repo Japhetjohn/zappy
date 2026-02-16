@@ -175,7 +175,16 @@ app.post('/webhook', async (req, res) => {
         storage_1.storageService.updateTransactionStatus(reference, status, txHash);
         const notifiableStatuses = ['VERIFIED', 'COMPLETED', 'FAILED', 'EXPIRED'];
         if (notifiableStatuses.includes(status)) {
-            await notification_1.notificationService.sendUpdate(transaction.user_id, reference, status, transaction.asset, transaction.amount, txHash, message);
+            let extra = { type: transaction.type };
+            if (status === 'COMPLETED' || status === 'VERIFIED') {
+                const txDetail = storage_1.storageService.getTransactionDetails(reference);
+                if (txDetail) {
+                    extra.destinationAmount = txDetail.destination_amount;
+                    extra.destinationCurrency = txDetail.destination_currency;
+                    extra.rate = txDetail.rate;
+                }
+            }
+            await notification_1.notificationService.sendUpdate(transaction.user_id, reference, status, transaction.asset, transaction.amount, txHash, message, extra);
         }
         return res.send({ success: true });
     }

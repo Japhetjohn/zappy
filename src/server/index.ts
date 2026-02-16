@@ -209,6 +209,17 @@ app.post('/webhook', async (req: Request, res: Response) => {
         // Notify user via shared service - only for critical updates
         const notifiableStatuses = ['VERIFIED', 'COMPLETED', 'FAILED', 'EXPIRED'];
         if (notifiableStatuses.includes(status)) {
+            // Fetch extra data for a richer notification if possible
+            let extra: any = { type: transaction.type };
+            if (status === 'COMPLETED' || status === 'VERIFIED') {
+                const txDetail = storageService.getTransactionDetails(reference);
+                if (txDetail) {
+                    extra.destinationAmount = txDetail.destination_amount;
+                    extra.destinationCurrency = txDetail.destination_currency;
+                    extra.rate = txDetail.rate;
+                }
+            }
+
             await notificationService.sendUpdate(
                 transaction.user_id,
                 reference,
@@ -216,7 +227,8 @@ app.post('/webhook', async (req: Request, res: Response) => {
                 transaction.asset,
                 transaction.amount,
                 txHash,
-                message
+                message,
+                extra
             );
         }
 
