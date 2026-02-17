@@ -244,6 +244,9 @@ export class SwitchService {
     async getStatus(reference: string): Promise<any> {
         try {
             const response = await this.api.get(`/status?reference=${reference}`);
+            console.log('--- DEBUG: STATUS RESPONSE ---');
+            console.log(JSON.stringify(response.data, null, 2));
+
             if (response.data.success) {
                 return response.data.data;
             }
