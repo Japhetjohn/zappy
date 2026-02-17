@@ -50,7 +50,7 @@ const startScheduler = () => {
                             }
                         }
                         else if (status.status !== previousStatus) {
-                            const txHash = status.hash || status.txHash || status.transactionHash || status.tx_hash;
+                            const txHash = status.hash || status.txHash || status.transactionHash || status.tx_hash || status.blockchain_tx_id || status.transaction_id;
                             storage_1.storageService.updateTransactionStatus(tx.reference, status.status, txHash);
                             logger_1.default.info(`Updated status for ${tx.reference} -> ${status.status} (Hash: ${txHash || 'None'})`);
                             const notifiableStatuses = ['RECEIVED', 'VERIFIED', 'PROCESSING', 'COMPLETED', 'FAILED', 'EXPIRED'];

@@ -172,7 +172,7 @@ app.post('/webhook', async (req, res) => {
             logger_1.default.warn(`Webhook received for unknown transaction: ${reference}`);
             return res.status(404).send({ success: false, message: 'Transaction not found' });
         }
-        const txHash = payload.hash || payload.txHash || payload.transactionHash || payload.tx_hash;
+        const txHash = payload.hash || payload.txHash || payload.transactionHash || payload.tx_hash || payload.blockchain_tx_id || payload.transaction_id;
         storage_1.storageService.updateTransactionStatus(reference, status, txHash);
         const notifiableStatuses = ['VERIFIED', 'COMPLETED', 'FAILED', 'EXPIRED'];
         if (notifiableStatuses.includes(status)) {

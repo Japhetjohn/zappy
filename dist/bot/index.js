@@ -241,7 +241,6 @@ exports.bot.action(/^confirm_(.+)$/, async (ctx) => {
     try {
         await switch_1.switchService.confirmDeposit(reference);
         await (0, index_1.safeEdit)(ctx, `✅ <b>Payment Notified</b>\n\nReference: <code>${reference}</code>\n\nWe are now verifying your transfer.`, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.callback('🔍 Check Status', `status_${reference}`)],
             [telegraf_1.Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
     }

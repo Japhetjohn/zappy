@@ -354,7 +354,6 @@ Our system is watching for your payment. You will be notified automatically once
 💡 <i>No need to notify us — Sit back and wait for your crypto!</i>
 `;
         const buttons = [
-            [telegraf_1.Markup.button.callback('🔍 Check Status', `status_${result.reference}`)],
             ...(((_a = keyboards_1.MAIN_KEYBOARD.reply_markup) === null || _a === void 0 ? void 0 : _a.inline_keyboard) || [])
         ];
         await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(buttons));

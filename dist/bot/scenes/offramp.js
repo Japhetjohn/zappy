@@ -479,7 +479,6 @@ Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 💡 <i>Your payment will be processed automatically after confirmation.</i>
 `;
         const buttons = [
-            [telegraf_1.Markup.button.callback('📊 Track Status', `status_${result.reference}`)],
             ...(((_a = keyboards_1.MAIN_KEYBOARD.reply_markup) === null || _a === void 0 ? void 0 : _a.inline_keyboard) || [])
         ];
         await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(buttons));
