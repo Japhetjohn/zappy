@@ -948,6 +948,9 @@
 
         async function confirmCurrentTransaction() {
             if (!currentTxRef) return;
+            const hash = prompt('Please provide the transaction hash (Optional):');
+            if (hash === null) return; // Cancelled prompt
+
             if (!confirm('Are you sure you want to MANUALLY confirm this deposit? Only do this if you have verified the funds arrived.')) return;
 
             try {
@@ -956,7 +959,11 @@
                 btn.disabled = true;
 
                 const headers = { 'Authorization': `Bearer ${adminKey}`, 'Content-Type': 'application/json' };
-                const res = await fetch(`/api/admin/transactions/${currentTxRef}/confirm`, { method: 'POST', headers });
+                const res = await fetch(`/api/admin/transactions/${currentTxRef}/confirm`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ hash })
+                });
                 const json = await res.json();
 
                 if (json.success) {
@@ -1103,6 +1110,11 @@
 
                     document.getElementById('stat-total-txs').innerText = stats.allTransactions || 0;
                     document.getElementById('stat-completed-txs').innerText = stats.completedTransactions || 0;
+
+                    // Sync Fee Input from Stats
+                    if (document.getElementById('fee-input')) {
+                        document.getElementById('fee-input').value = stats.platformFee || '0.1';
+                    }
                 }
 
                 // 2. Transactions

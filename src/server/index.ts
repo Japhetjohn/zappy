@@ -34,9 +34,11 @@ app.get('/api/admin/stats', adminAuth, async (req: Request, res: Response) => {
     try {
         const rates = await switchService.getRates().catch(() => ({ buy: 1500, sell: 1500 }));
         const rate = (rates.buy + rates.sell) / 2 || 1500;
+
+        // Use live rate for stats calculation
         const stats = storageService.getStats(rate) as any;
 
-        // Fetch real-time developer fees from Switch API
+        // Fetch real-time developer fees (earnings) from Switch API
         try {
             const fees = await switchService.getDeveloperFees();
             stats.developerFees = fees;
@@ -70,20 +72,20 @@ app.get('/api/admin/transactions/:reference', adminAuth, (req: Request, res: Res
         return res.status(500).json({ error: e.message });
     }
 });
-
 app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req: Request, res: Response): Promise<any> => {
     try {
         const reference = req.params.reference as string;
         const tx = storageService.getTransaction(reference);
         if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
-        logger.info(`🚨 Admin manual confirmation triggered for ${reference}`);
+        const { hash } = req.body;
+        logger.info(`🚨 Admin manual confirmation triggered for ${reference}${hash ? ` with hash ${hash}` : ''}`);
 
         // Trigger manual confirmation via Switch API
-        const result = await switchService.confirmDeposit(reference);
+        const result = await switchService.confirmDeposit(reference, hash);
 
         // Update status locally to PROCESSING if Switch confirms
-        storageService.updateTransactionStatus(reference, result.status || 'PROCESSING');
+        storageService.updateTransactionStatus(reference, result.status || 'PROCESSING', hash);
 
         return res.json({ success: true, data: result });
     } catch (e: any) {

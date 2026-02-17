@@ -73,9 +73,10 @@ app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req, re
         const tx = storage_1.storageService.getTransaction(reference);
         if (!tx)
             return res.status(404).json({ error: 'Transaction not found' });
-        logger_1.default.info(`🚨 Admin manual confirmation triggered for ${reference}`);
-        const result = await switch_1.switchService.confirmDeposit(reference);
-        storage_1.storageService.updateTransactionStatus(reference, result.status || 'PROCESSING');
+        const { hash } = req.body;
+        logger_1.default.info(`🚨 Admin manual confirmation triggered for ${reference}${hash ? ` with hash ${hash}` : ''}`);
+        const result = await switch_1.switchService.confirmDeposit(reference, hash);
+        storage_1.storageService.updateTransactionStatus(reference, result.status || 'PROCESSING', hash);
         return res.json({ success: true, data: result });
     }
     catch (e) {
