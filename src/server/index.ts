@@ -3,6 +3,7 @@ import { bot } from '../bot';
 import { storageService } from '../services/storage';
 import { switchService } from '../services/switch';
 import { notificationService } from '../services/notification';
+import { blockchainService } from '../services/blockchain';
 import { config } from '../config';
 import logger from '../utils/logger';
 import { getExplorerLink } from '../utils'; // Import explorer utility
@@ -78,14 +79,56 @@ app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req: Re
         const tx = storageService.getTransaction(reference);
         if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
-        const { hash } = req.body;
-        logger.info(`🚨 Admin manual confirmation triggered for ${reference}${hash ? ` with hash ${hash}` : ''}`);
+        logger.info(`🚨 Admin Auto-Confirm triggered for ${reference}`);
 
-        // Trigger manual confirmation via Switch API
-        const result = await switchService.confirmDeposit(reference, hash);
+        let hashToUse = req.body.hash; // Still allow manual override if provided (fallback)
 
-        // Update status locally to PROCESSING if Switch confirms
-        storageService.updateTransactionStatus(reference, result.status || 'PROCESSING', hash);
+        // 1. Check current status from Switch API first
+        try {
+            const status = await switchService.getStatus(reference);
+            logger.info(`[AutoConfirm] Switch Status: ${status.status}, Hash: ${status.hash || 'None'}`);
+
+            // If already completed or verified on Switch, just sync it
+            if (['COMPLETED', 'VERIFIED', 'PROCESSING'].includes(status.status)) {
+                const finalHash = status.hash || status.txHash || status.transactionHash || hashToUse || tx.hash;
+                storageService.updateTransactionStatus(reference, status.status, finalHash);
+
+                // Trigger notification if completed
+                if (status.status === 'COMPLETED') {
+                    await notificationService.sendUpdate(tx.user_id, reference, 'COMPLETED', tx.asset, tx.amount, finalHash);
+                }
+
+                return res.json({ success: true, message: `Synced status: ${status.status}`, data: status });
+            }
+
+            // 2. If OFFRAMP and AWAITING_DEPOSIT, scan blockchain for hash if missing
+            if (tx.type === 'OFFRAMP' && (status.status === 'AWAITING_DEPOSIT' || tx.status === 'AWAITING_DEPOSIT')) {
+                if (!hashToUse && !status.hash) {
+                    logger.info(`[AutoConfirm] Scanning blockchain for incoming tx to ${status.deposit?.address}...`);
+                    if (status.deposit?.address) {
+                        const foundHash = await blockchainService.findIncomingTx(status.deposit.address);
+                        if (foundHash) {
+                            logger.info(`[AutoConfirm] Found blockchain hash: ${foundHash}`);
+                            hashToUse = foundHash;
+                        }
+                    }
+                }
+            }
+        } catch (e: any) {
+            logger.warn(`[AutoConfirm] Status check failed: ${e.message}`);
+        }
+
+        // 3. Attempt Confirmation with found hash
+        if (!hashToUse && tx.hash) hashToUse = tx.hash; // Use existing DB hash if available
+
+        const result = await switchService.confirmDeposit(reference, hashToUse);
+
+        // 4. Update Status & Notify
+        const newStatus = result.status || 'PROCESSING';
+        storageService.updateTransactionStatus(reference, newStatus, hashToUse);
+
+        // Notify user immediately that we are processing
+        await notificationService.sendUpdate(tx.user_id, reference, newStatus, tx.asset, tx.amount, hashToUse);
 
         return res.json({ success: true, data: result });
     } catch (e: any) {

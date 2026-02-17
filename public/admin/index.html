@@ -948,21 +948,19 @@
 
         async function confirmCurrentTransaction() {
             if (!currentTxRef) return;
-            const hash = prompt('Please provide the transaction hash (Optional):');
-            if (hash === null) return; // Cancelled prompt
 
-            if (!confirm('Are you sure you want to MANUALLY confirm this deposit? Only do this if you have verified the funds arrived.')) return;
+            if (!confirm('Are you sure you want to FORCE confirm this transaction? The system will attempt to auto-detect the payment.')) return;
 
             try {
                 const btn = document.getElementById('btn-manual-confirm');
-                btn.innerText = '⌛ Confirming...';
+                btn.innerText = '⌛ Auto-Confirming...';
                 btn.disabled = true;
 
                 const headers = { 'Authorization': `Bearer ${adminKey}`, 'Content-Type': 'application/json' };
                 const res = await fetch(`/api/admin/transactions/${currentTxRef}/confirm`, {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify({ hash })
+                    body: JSON.stringify({}) // No hash needed, backend will find it
                 });
                 const json = await res.json();
 

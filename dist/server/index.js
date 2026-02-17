@@ -8,6 +8,7 @@ const express_1 = __importDefault(require("express"));
 const storage_1 = require("../services/storage");
 const switch_1 = require("../services/switch");
 const notification_1 = require("../services/notification");
+const blockchain_1 = require("../services/blockchain");
 const config_1 = require("../config");
 const logger_1 = __importDefault(require("../utils/logger"));
 const app = (0, express_1.default)();
@@ -68,15 +69,47 @@ app.get('/api/admin/transactions/:reference', adminAuth, (req, res) => {
     }
 });
 app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req, res) => {
+    var _a, _b;
     try {
         const reference = req.params.reference;
         const tx = storage_1.storageService.getTransaction(reference);
         if (!tx)
             return res.status(404).json({ error: 'Transaction not found' });
-        const { hash } = req.body;
-        logger_1.default.info(`🚨 Admin manual confirmation triggered for ${reference}${hash ? ` with hash ${hash}` : ''}`);
-        const result = await switch_1.switchService.confirmDeposit(reference, hash);
-        storage_1.storageService.updateTransactionStatus(reference, result.status || 'PROCESSING', hash);
+        logger_1.default.info(`🚨 Admin Auto-Confirm triggered for ${reference}`);
+        let hashToUse = req.body.hash;
+        try {
+            const status = await switch_1.switchService.getStatus(reference);
+            logger_1.default.info(`[AutoConfirm] Switch Status: ${status.status}, Hash: ${status.hash || 'None'}`);
+            if (['COMPLETED', 'VERIFIED', 'PROCESSING'].includes(status.status)) {
+                const finalHash = status.hash || status.txHash || status.transactionHash || hashToUse || tx.hash;
+                storage_1.storageService.updateTransactionStatus(reference, status.status, finalHash);
+                if (status.status === 'COMPLETED') {
+                    await notification_1.notificationService.sendUpdate(tx.user_id, reference, 'COMPLETED', tx.asset, tx.amount, finalHash);
+                }
+                return res.json({ success: true, message: `Synced status: ${status.status}`, data: status });
+            }
+            if (tx.type === 'OFFRAMP' && (status.status === 'AWAITING_DEPOSIT' || tx.status === 'AWAITING_DEPOSIT')) {
+                if (!hashToUse && !status.hash) {
+                    logger_1.default.info(`[AutoConfirm] Scanning blockchain for incoming tx to ${(_a = status.deposit) === null || _a === void 0 ? void 0 : _a.address}...`);
+                    if ((_b = status.deposit) === null || _b === void 0 ? void 0 : _b.address) {
+                        const foundHash = await blockchain_1.blockchainService.findIncomingTx(status.deposit.address);
+                        if (foundHash) {
+                            logger_1.default.info(`[AutoConfirm] Found blockchain hash: ${foundHash}`);
+                            hashToUse = foundHash;
+                        }
+                    }
+                }
+            }
+        }
+        catch (e) {
+            logger_1.default.warn(`[AutoConfirm] Status check failed: ${e.message}`);
+        }
+        if (!hashToUse && tx.hash)
+            hashToUse = tx.hash;
+        const result = await switch_1.switchService.confirmDeposit(reference, hashToUse);
+        const newStatus = result.status || 'PROCESSING';
+        storage_1.storageService.updateTransactionStatus(reference, newStatus, hashToUse);
+        await notification_1.notificationService.sendUpdate(tx.user_id, reference, newStatus, tx.asset, tx.amount, hashToUse);
         return res.json({ success: true, data: result });
     }
     catch (e) {
