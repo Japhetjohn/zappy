@@ -1,6 +1,7 @@
 import { Scenes, Markup } from 'telegraf';
 import { switchService } from '../../services/switch';
 import { storageService } from '../../services/storage';
+import { config } from '../../config';
 import { Beneficiary } from '../../types';
 import { formatAmount, safeEdit, safeDelete, paginationKeyboard, formatButtons21, sortBanksByPriority } from '../../utils';
 import { MAIN_KEYBOARD } from '../keyboards';
@@ -211,7 +212,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
         try {
             const settings = storageService.getSettings();
-            const platformFeeRaw = settings.platform_fee || '0.1';
+            const platformFeeRaw = settings.platform_fee || config.developerFee.toString();
             const platformFee = parseFloat(platformFeeRaw);
 
             const quote = await switchService.getOfframpQuote(

@@ -4,6 +4,7 @@ exports.offrampWizard = void 0;
 const telegraf_1 = require("telegraf");
 const switch_1 = require("../../services/switch");
 const storage_1 = require("../../services/storage");
+const config_1 = require("../../config");
 const utils_1 = require("../../utils");
 const keyboards_1 = require("../keyboards");
 const offrampWizard = new telegraf_1.Scenes.WizardScene('offramp-wizard', async (ctx) => {
@@ -182,7 +183,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
     ctx.wizard.state.data.amount = amount;
     try {
         const settings = storage_1.storageService.getSettings();
-        const platformFeeRaw = settings.platform_fee || '0.1';
+        const platformFeeRaw = settings.platform_fee || config_1.config.developerFee.toString();
         const platformFee = parseFloat(platformFeeRaw);
         const quote = await switch_1.switchService.getOfframpQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
         ctx.wizard.state.quote = quote;
