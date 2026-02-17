@@ -63,6 +63,10 @@ try {
   db.prepare('ALTER TABLE transactions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP').run();
 } catch (e) { }
 
+try {
+  db.prepare('ALTER TABLE transactions ADD COLUMN hash TEXT').run();
+} catch (e) { }
+
 // Settings Table
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
