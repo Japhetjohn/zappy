@@ -279,7 +279,6 @@ bot.action(/^confirm_(.+)$/, async (ctx) => {
     try {
         await switchService.confirmDeposit(reference);
         await safeEdit(ctx, `✅ <b>Payment Notified</b>\n\nReference: <code>${reference}</code>\n\nWe are now verifying your transfer.`, Markup.inlineKeyboard([
-            [Markup.button.callback('🔍 Check Status', `status_${reference}`)],
             [Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
     } catch (error: any) {

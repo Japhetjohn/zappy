@@ -553,7 +553,6 @@ Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 💡 <i>Your payment will be processed automatically after confirmation.</i>
 `;
             const buttons = [
-                [Markup.button.callback('📊 Track Status', `status_${result.reference}`)],
                 ...(MAIN_KEYBOARD.reply_markup?.inline_keyboard || [])
             ];
 

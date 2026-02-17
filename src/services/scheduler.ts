@@ -58,7 +58,7 @@ export const startScheduler = () => {
                         }
                         // 2. If status changed, update and notify
                         else if (status.status !== previousStatus) {
-                            const txHash = status.hash || status.txHash || status.transactionHash || status.tx_hash;
+                            const txHash = status.hash || status.txHash || status.transactionHash || status.tx_hash || status.blockchain_tx_id || status.transaction_id;
                             storageService.updateTransactionStatus(tx.reference, status.status, txHash);
                             logger.info(`Updated status for ${tx.reference} -> ${status.status} (Hash: ${txHash || 'None'})`);
 

@@ -418,7 +418,6 @@ Our system is watching for your payment. You will be notified automatically once
 `;
 
             const buttons = [
-                [Markup.button.callback('🔍 Check Status', `status_${result.reference}`)],
                 ...(MAIN_KEYBOARD.reply_markup?.inline_keyboard || [])
             ];
 

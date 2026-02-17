@@ -322,7 +322,9 @@ export const storageService = {
 
   getTransactionDetails: (reference: string) => {
     return db.prepare(`
-      SELECT t.*, u.username, u.full_name, u.id as user_db_id
+      SELECT 
+        t.id, t.user_id, t.reference, t.type, t.asset, t.amount, t.currency, t.status, t.hash, t.created_at, t.updated_at,
+        u.username, u.full_name, u.id as user_db_id
       FROM transactions t
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.reference = ?

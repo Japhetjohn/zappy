@@ -203,7 +203,7 @@ app.post('/webhook', async (req: Request, res: Response) => {
             return res.status(404).send({ success: false, message: 'Transaction not found' });
         }
 
-        const txHash = payload.hash || payload.txHash || payload.transactionHash || payload.tx_hash;
+        const txHash = payload.hash || payload.txHash || payload.transactionHash || payload.tx_hash || payload.blockchain_tx_id || payload.transaction_id;
 
         // Update database status
         storageService.updateTransactionStatus(reference, status, txHash);
