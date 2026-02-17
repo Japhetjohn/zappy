@@ -33,6 +33,12 @@ const onrampWizard = new telegraf_1.Scenes.WizardScene('onramp-wizard', async (c
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Select the asset you want to purchase:
+
+📊 <b>Transaction Limits (Per Transaction):</b>
+   • Minimum: <b>₦2,000</b>
+   • Maximum: <b>₦200,000</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
         const buttons = symbols.map(s => telegraf_1.Markup.button.callback(s, `symbol:${s}`));
         const rows = (0, utils_1.formatButtons21)(buttons);

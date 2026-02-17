@@ -28,11 +28,17 @@ const offrampWizard = new telegraf_1.Scenes.WizardScene('offramp-wizard', async 
             return a.localeCompare(b);
         });
         const msg = `
-🪙 <b>Select Asset</b>
+🪙 <b>Sell Crypto</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Choose the crypto asset you wish to sell:
+
+📊 <b>Transaction Limits (Per Transaction):</b>
+   • Minimum: <b>$1</b>
+   • Maximum: <b>$10,000</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
         const buttons = symbols.map(s => telegraf_1.Markup.button.callback(s, `symbol:${s}`));
         const rows = (0, utils_1.formatButtons21)(buttons);

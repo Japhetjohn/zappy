@@ -31,11 +31,17 @@ const offrampWizard = new Scenes.WizardScene(
             });
 
             const msg = `
-🪙 <b>Select Asset</b>
+🪙 <b>Sell Crypto</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Choose the crypto asset you wish to sell:
+
+📊 <b>Transaction Limits (Per Transaction):</b>
+   • Minimum: <b>$1</b>
+   • Maximum: <b>$10,000</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
             const buttons = symbols.map(s => Markup.button.callback(s, `symbol:${s}`));
             const rows = formatButtons21(buttons);

@@ -36,6 +36,12 @@ const onrampWizard = new Scenes.WizardScene(
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Select the asset you want to purchase:
+
+📊 <b>Transaction Limits (Per Transaction):</b>
+   • Minimum: <b>₦2,000</b>
+   • Maximum: <b>₦200,000</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
             const buttons = symbols.map(s => Markup.button.callback(s, `symbol:${s}`));
             const rows = formatButtons21(buttons);
