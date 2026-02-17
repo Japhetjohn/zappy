@@ -180,6 +180,26 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
         return;
     }
     const amount = parseFloat(text.replace(/,/g, ''));
+    const MIN_AMOUNT_USD = 1;
+    const MAX_AMOUNT_USD = 10000;
+    if (amount < MIN_AMOUNT_USD) {
+        await ctx.replyWithHTML(`⚠️ <b>Amount Too Low</b>\n\n` +
+            `Minimum transaction: <b>$${MIN_AMOUNT_USD.toLocaleString()}</b>\n` +
+            `You entered: <b>${amount.toLocaleString()} ${ctx.wizard.state.data.symbol}</b>\n\n` +
+            `Please enter a larger amount.`, telegraf_1.Markup.inlineKeyboard([
+            [telegraf_1.Markup.button.callback('🔄 Try Again', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
+        ]));
+        return;
+    }
+    if (amount > MAX_AMOUNT_USD) {
+        await ctx.replyWithHTML(`⚠️ <b>Amount Too High</b>\n\n` +
+            `Maximum transaction: <b>$${MAX_AMOUNT_USD.toLocaleString()}</b>\n` +
+            `You entered: <b>${amount.toLocaleString()} ${ctx.wizard.state.data.symbol}</b>\n\n` +
+            `Please enter a smaller amount or split into multiple transactions.`, telegraf_1.Markup.inlineKeyboard([
+            [telegraf_1.Markup.button.callback('🔄 Try Again', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
+        ]));
+        return;
+    }
     ctx.wizard.state.data.amount = amount;
     try {
         const settings = storage_1.storageService.getSettings();

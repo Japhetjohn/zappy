@@ -135,13 +135,13 @@ export class SwitchService {
     }): Promise<any> {
         try {
             // Sanitize holder name... (Remove emojis/symbols but keep basic name chars)
-            // Fallback to 'Bitnova Customer' instead of 'Crypto Buyer' to avoid flagging
+            // Fallback to generic 'User' if name is invalid/missing
             let sanitizedName = data.holderName
                 ? data.holderName.replace(/[^a-zA-Z\s'-]/g, '').trim()
                 : '';
 
             if (!sanitizedName || sanitizedName.length < 2) {
-                sanitizedName = 'Bitnova Customer';
+                sanitizedName = 'User';
             }
 
             const payload: any = {

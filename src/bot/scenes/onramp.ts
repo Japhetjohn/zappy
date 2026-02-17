@@ -199,6 +199,37 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         }
 
         const amount = parseFloat(text.replace(/,/g, ''));
+
+        // Validate transaction limits (₦2,000 - ₦200,000)
+        const MIN_AMOUNT = 2000;
+        const MAX_AMOUNT = 200000;
+
+        if (amount < MIN_AMOUNT) {
+            await ctx.replyWithHTML(
+                `⚠️ <b>Amount Too Low</b>\n\n` +
+                `Minimum transaction: <b>₦${MIN_AMOUNT.toLocaleString()}</b>\n` +
+                `You entered: <b>₦${amount.toLocaleString()}</b>\n\n` +
+                `Please enter a larger amount.`,
+                Markup.inlineKeyboard([
+                    [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
+                ])
+            );
+            return;
+        }
+
+        if (amount > MAX_AMOUNT) {
+            await ctx.replyWithHTML(
+                `⚠️ <b>Amount Too High</b>\n\n` +
+                `Maximum transaction: <b>₦${MAX_AMOUNT.toLocaleString()}</b>\n` +
+                `You entered: <b>₦${amount.toLocaleString()}</b>\n\n` +
+                `Please enter a smaller amount or split into multiple transactions.`,
+                Markup.inlineKeyboard([
+                    [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
+                ])
+            );
+            return;
+        }
+
         ctx.wizard.state.data.amount = amount;
 
         try {

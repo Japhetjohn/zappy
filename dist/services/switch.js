@@ -103,14 +103,19 @@ class SwitchService {
     async getOnrampQuote(amount, country, asset, currency = 'NGN', developerFee) {
         var _a;
         try {
-            const response = await this.api.post('/onramp/quote', {
+            const payload = {
                 amount,
                 country,
                 asset,
                 currency,
                 channel: 'BANK',
                 developer_fee: developerFee !== undefined ? developerFee : config_1.config.developerFee,
-            });
+            };
+            console.log('--- DEBUG: ONRAMP QUOTE REQUEST ---');
+            console.log(JSON.stringify(payload, null, 2));
+            const response = await this.api.post('/onramp/quote', payload);
+            console.log('--- DEBUG: ONRAMP QUOTE RESPONSE ---');
+            console.log(JSON.stringify(response.data, null, 2));
             if (response.data.success) {
                 return response.data.data;
             }
@@ -128,7 +133,7 @@ class SwitchService {
                 ? data.holderName.replace(/[^a-zA-Z\s'-]/g, '').trim()
                 : '';
             if (!sanitizedName || sanitizedName.length < 2) {
-                sanitizedName = 'Bitnova Customer';
+                sanitizedName = 'User';
             }
             const payload = {
                 amount: data.amount,
@@ -218,6 +223,8 @@ class SwitchService {
         var _a;
         try {
             const response = await this.api.get(`/status?reference=${reference}`);
+            console.log('--- DEBUG: STATUS RESPONSE ---');
+            console.log(JSON.stringify(response.data, null, 2));
             if (response.data.success) {
                 return response.data.data;
             }
