@@ -98,14 +98,20 @@ export class SwitchService {
 
     async getOnrampQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number): Promise<Quote> {
         try {
-            const response = await this.api.post('/onramp/quote', {
+            const payload = {
                 amount,
                 country,
                 asset,
                 currency,
                 channel: 'BANK',
                 developer_fee: developerFee !== undefined ? developerFee : config.developerFee,
-            });
+            };
+            console.log('--- DEBUG: ONRAMP QUOTE REQUEST ---');
+            console.log(JSON.stringify(payload, null, 2));
+
+            const response = await this.api.post('/onramp/quote', payload);
+            console.log('--- DEBUG: ONRAMP QUOTE RESPONSE ---');
+            console.log(JSON.stringify(response.data, null, 2));
             if (response.data.success) {
                 return response.data.data;
             }

@@ -1107,12 +1107,6 @@
                     }
 
                     document.getElementById('stat-total-txs').innerText = stats.allTransactions || 0;
-                    document.getElementById('stat-completed-txs').innerText = stats.completedTransactions || 0;
-
-                    // Sync Fee Input from Stats
-                    if (document.getElementById('fee-input')) {
-                        document.getElementById('fee-input').value = stats.platformFee || '0.1';
-                    }
                 }
 
                 // 2. Transactions
