@@ -22,7 +22,7 @@ const startScheduler = () => {
         try {
             const rows = db.prepare(`
                 SELECT reference, status, created_at, type, user_id, asset, amount FROM transactions 
-                WHERE status IN ('PENDING', 'AWAITING_DEPOSIT', 'PROCESSING', 'VERIFIED')
+                WHERE status IN ('PENDING', 'AWAITING_DEPOSIT', 'PROCESSING', 'VERIFIED', 'SCHEDULED')
                 AND created_at < datetime('now', '-1 minutes')
                 AND created_at > datetime('now', '-24 hours')
             `).all();
