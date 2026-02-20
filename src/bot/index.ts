@@ -190,6 +190,26 @@ bot.on('text', async (ctx, next) => {
     return next();
 });
 
+bot.action('action_menu', async (ctx) => {
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
+    try {
+        // Leave any active scene
+        if (ctx.scene?.current) {
+            await ctx.scene.leave();
+        }
+        const name = ctx.from?.first_name || 'Friend';
+        await safeEdit(ctx, getWelcomeMsg(name), MAIN_KEYBOARD);
+    } catch (err: any) {
+        // If edit fails (e.g. message too old), send a new message
+        try {
+            const name = ctx.from?.first_name || 'Friend';
+            await ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
+        } catch (e) {
+            logger.error(`action_menu fallback failed: ${(e as any).message}`);
+        }
+    }
+});
+
 bot.action('action_onramp', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.enter('onramp-wizard');
