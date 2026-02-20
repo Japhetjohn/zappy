@@ -318,7 +318,7 @@ export class SwitchService {
                     wallet_address: walletAddress
                 }
             };
-            const response = await this.api.post('/withdraw', payload);
+            const response = await this.api.post('/developer/withdraw', payload);
             if (response.data.success) {
                 return response.data.data;
             }
