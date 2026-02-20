@@ -654,6 +654,11 @@
                         <span id="stat-total-earned" style="font-size: 14px;">$0 | ₦0</span>
                         <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Dynamic Fee Income
                         </div>
+                        <button id="btn-withdraw-fees" onclick="withdrawFees()"
+                            title="Withdraw all fees to Solana wallet"
+                            style="margin-top: 8px; background: linear-gradient(135deg, #9945FF, #14F195); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; gap: 5px;">
+                            💸 Withdraw to Solana
+                        </button>
                     </div>
                     <button class="refresh-btn" onclick="fetchData()" title="Refresh Earnings"
                         style="position: absolute; top: 10px; right: 10px; padding: 5px; width: 30px; height: 30px;">
@@ -1278,6 +1283,50 @@
             });
 
             rows.forEach(row => table.appendChild(row));
+        }
+
+        async function withdrawFees() {
+            const btn = document.getElementById('btn-withdraw-fees');
+            const origText = btn.innerHTML;
+
+            if (!confirm('Withdraw ALL accumulated fees to your Solana wallet?\n\nWallet: GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV\nAsset: solana:usdc')) return;
+
+            btn.innerHTML = '⏳ Withdrawing...';
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+
+            try {
+                const res = await fetch('/api/admin/withdraw', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${adminKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ asset: 'solana:usdc' })
+                });
+                const json = await res.json();
+
+                if (res.ok && json.success) {
+                    const d = json.data;
+                    let msg = `✅ Withdrawal Successful!\n\nAmount: $${Number(d.amount).toFixed(2)}`;
+                    if (d.hash) msg += `\nTX Hash: ${d.hash}`;
+                    if (d.explorer_url) msg += `\nExplorer: ${d.explorer_url}`;
+                    alert(msg);
+                    btn.innerHTML = '✅ Withdrawn!';
+                    btn.style.background = 'linear-gradient(135deg, #05cd99, #14F195)';
+                    fetchData(); // Refresh earnings display
+                } else {
+                    alert('❌ Withdrawal failed: ' + (json.error || 'Unknown error'));
+                    btn.innerHTML = origText;
+                }
+            } catch (e) {
+                alert('❌ Error: ' + e.message);
+                btn.innerHTML = origText;
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                setTimeout(() => { btn.innerHTML = origText; }, 5000);
+            }
         }
 
         async function saveSettings() {
