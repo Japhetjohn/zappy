@@ -37,9 +37,7 @@ const onrampWizard = new Scenes.WizardScene(
 
 Select the asset you want to purchase:
 
-📊 <b>Transaction Limits (Per Transaction):</b>
-   • Minimum: <b>₦2,000</b>
-   • Maximum: <b>₦200,000</b>
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
@@ -47,7 +45,7 @@ Select the asset you want to purchase:
             const rows = formatButtons21(buttons);
             rows.push([Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(rows));
+            await safeEdit(ctx, msg, Markup.inlineKeyboard(rows));
             return ctx.wizard.next();
         } catch (error: any) {
             await ctx.replyWithHTML(`❌ <b>Error:</b> Failed to fetch assets. ${error.message}`, Markup.inlineKeyboard([
@@ -90,7 +88,7 @@ Select the blockchain network:
         const buttons = formatButtons21(assetButtons);
         buttons.push([Markup.button.callback('⬅️ Back', 'back_to_symbol')]);
 
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     },
 
@@ -138,7 +136,7 @@ Choose your local currency:
             const buttons = formatButtons21(currencyButtons);
             buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+            await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
             return ctx.wizard.next();
         } catch (error: any) {
             await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
@@ -174,7 +172,7 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
 
 <i>Example: 50,000</i>
 `;
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+        await safeEdit(ctx, msg, Markup.inlineKeyboard([
             [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
         ]));
         return ctx.wizard.next();
@@ -207,8 +205,8 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         const amount = parseFloat(text.replace(/,/g, ''));
 
         // Validate transaction limits (₦2,000 - ₦200,000)
-        const MIN_AMOUNT = 2000;
-        const MAX_AMOUNT = 200000;
+        const MIN_AMOUNT = 2000000000;
+        const MAX_AMOUNT = 20000000000000;
 
         if (amount < MIN_AMOUNT) {
             await ctx.replyWithHTML(
@@ -263,13 +261,12 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${ctx.wizard.state.data.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> ${ctx.wizard.state.platformFee}%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⏱ <i>Expires in 5 minutes</i>
 `;
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            await safeEdit(ctx, msg, Markup.inlineKeyboard([
                 [Markup.button.callback('✅ Confirm & Continue', 'proceed')],
                 [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
             ]));
@@ -328,7 +325,7 @@ Where should we send your <b>${ctx.wizard.state.data.symbol}</b>?
 
 Paste your wallet address below:
 `;
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+        await safeEdit(ctx, msg, Markup.inlineKeyboard([
             [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
         ]));
         return ctx.wizard.next();
@@ -392,7 +389,7 @@ Is this correct?
             [Markup.button.callback('✅ Yes, Create Order', 'initiate')],
             [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
         ];
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -450,7 +447,7 @@ Please make a transfer from <b>your bank account</b> directly to the account bel
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚡️ <b>Automated Detection:</b>
-Our system is watching for your payment. You will be notified automatically once the funds are received.
+You will be notified  once the funds are received.
 
 💡 <i>No need to notify us — Sit back and wait for your crypto!</i>
 `;

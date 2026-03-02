@@ -37,9 +37,7 @@ const offrampWizard = new Scenes.WizardScene(
 
 Choose the crypto asset you wish to sell:
 
-📊 <b>Transaction Limits (Per Transaction):</b>
-   • Minimum: <b>$1</b>
-   • Maximum: <b>$10,000</b>
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
@@ -47,7 +45,7 @@ Choose the crypto asset you wish to sell:
             const rows = formatButtons21(buttons);
             rows.push([Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(rows));
+            await safeEdit(ctx, msg, Markup.inlineKeyboard(rows));
             return ctx.wizard.next();
         } catch (error: any) {
             await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`, Markup.inlineKeyboard([
@@ -90,7 +88,7 @@ Select the blockchain network:
         const buttons = formatButtons21(assetButtons);
         buttons.push([Markup.button.callback('⬅️ Back', 'back_to_symbol')]);
 
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     },
 
@@ -147,7 +145,7 @@ Choose your local currency:
             const buttons = formatButtons21(currencyButtons);
             buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+            await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
             return ctx.wizard.next();
         } catch (error: any) {
             await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
@@ -184,7 +182,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
 <i>Example: 100</i>
 `;
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+        await safeEdit(ctx, msg, Markup.inlineKeyboard([
             [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
         ]));
         return ctx.wizard.next();
@@ -216,8 +214,8 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
         const amount = parseFloat(text.replace(/,/g, ''));
 
         // Validate transaction limits ($1 - $10,000)
-        const MIN_AMOUNT_USD = 1;
-        const MAX_AMOUNT_USD = 10000;
+        const MIN_AMOUNT_USD = 1000000000000000;
+        const MAX_AMOUNT_USD = 100000000000000000000;
 
         if (amount < MIN_AMOUNT_USD) {
             await ctx.replyWithHTML(
@@ -272,13 +270,13 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
 📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${quote.destination.currency}
 ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> ${ctx.wizard.state.platformFee}%
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⏱ <i>Expires in 5 minutes</i>
 `;
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            await safeEdit(ctx, msg, Markup.inlineKeyboard([
                 [Markup.button.callback('✅ Confirm & Continue', 'proceed')],
                 [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
             ]));
@@ -347,7 +345,7 @@ ${saved.length > 0 ? '\n<b>Or choose from saved account below 👇</b>' : ''}
         ];
 
         const buttons = formatButtons21(allButtons);
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     },
 
@@ -392,7 +390,7 @@ ${saved.length > 0 ? '\n<b>Or choose from saved account below 👇</b>' : ''}
                 const page = parseInt(data.replace('page:', ''));
                 ctx.wizard.state.bankPage = page;
                 const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
-                await ctx.replyWithHTML(ctx.wizard.state.bankMsg, kb);
+                await safeEdit(ctx, ctx.wizard.state.bankMsg, kb);
                 return;
             }
 
@@ -426,7 +424,7 @@ Choose your receiving bank:
 `;
             ctx.wizard.state.bankMsg = msg;
             const kb = paginationKeyboard(ctx.wizard.state.banks, page, 10, 'bank', 'cancel', 'back_to_acc');
-            await ctx.replyWithHTML(msg, kb);
+            await safeEdit(ctx, msg, kb);
             // Stay in this step to handle callbacks
             return;
         } catch (e) {
@@ -515,7 +513,7 @@ Choose your receiving bank:
 
 
             const buttons = formatButtons21(allReviewButtons);
-            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+            await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
         }
     },
 

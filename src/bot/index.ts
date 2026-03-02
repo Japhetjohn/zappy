@@ -94,7 +94,7 @@ import { MAIN_KEYBOARD } from './keyboards';
 // START Command moved to top for priority
 
 // 📊 ADMIN STATS COMMAND (Restricted)
-const ADMIN_USERNAMES = ['japhet', 'kamalkt6'];
+const ADMIN_USERNAMES = ['@official_johny01', 'kamalkt6'];
 
 bot.command('stats', async (ctx) => {
     const username = ctx.from?.username?.toLowerCase();
@@ -157,7 +157,7 @@ Current Balance: <b>${fees.amount} ${fees.currency}</b>
 
 Please enter the <b>Solana Wallet Address</b> where you want to receive your USDC payout:
 `;
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+        await safeEdit(ctx, msg, Markup.inlineKeyboard([
             [Markup.button.callback('❌ Cancel', 'action_menu')]
         ]));
 
@@ -406,7 +406,7 @@ async function handleRates(ctx: any) {
 
 <i>Rates are refreshed every minute.</i>
 `;
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+        await safeEdit(ctx, msg, Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Refresh', 'action_rates')],
             [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
         ]));
@@ -421,7 +421,7 @@ async function handleHistory(ctx: any) {
         // Filter out PENDING/EXPIRED as per request - show only meaningful history
         const history = storageService.getTransactionHistory(ctx.from.id, 10, 0, ['PENDING', 'COMPLETED', 'FAILED', 'VERIFIED', 'RECEIVED', 'PROCESSING']);
         if (history.length === 0) {
-            await ctx.replyWithHTML(`📭 <b>No transaction history found.</b>\n\nStart your first transaction by clicking Buy or Sell!`, Markup.inlineKeyboard([
+            await safeEdit(ctx, `📭 <b>No transaction history found.</b>\n\nStart your first transaction by clicking Buy or Sell!`, Markup.inlineKeyboard([
                 [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
             ]));
             return;
@@ -447,7 +447,7 @@ Select a transaction to see details:
         });
 
         buttons.push([Markup.button.callback('🏠 Back to Menu', 'action_menu')]);
-        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
+        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
     } catch (error: any) {
         await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
     }
@@ -475,7 +475,7 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 <b>Need human help?</b>
 Just join our community group at <a href="https://t.me/bitnova_africa">@bitnova_africa</a> and our team will sort you out! 🌍🤝
 `;
-    await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+    await safeEdit(ctx, msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
     ]));
 }
