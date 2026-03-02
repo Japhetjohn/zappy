@@ -265,7 +265,7 @@ export const storageService = {
     db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
   },
 
-  getUserProcessingStats: (rate: number = 1500) => {
+  getUserProcessingStats: (rate: number = 1600) => {
     const users = db.prepare(`
       SELECT 
         u.id, 
@@ -295,7 +295,7 @@ export const storageService = {
     }).sort((a, b) => b.total_volume - a.total_volume);
   },
 
-  getUserDetailStats: (userId: number, rate: number = 1500) => {
+  getUserDetailStats: (userId: number, rate: number = 1600) => {
     const statsResult = db.prepare(`
       SELECT 
         COUNT(*) as total_tx,
