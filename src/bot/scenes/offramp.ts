@@ -564,7 +564,7 @@ Choose your receiving bank:
                 type: 'OFFRAMP',
                 asset: ctx.wizard.state.data.asset.id,
                 amount: ctx.wizard.state.data.amount,
-                currency: ctx.wizard.state.data.currency
+                currency: 'USD'
             });
 
             const msg = `

@@ -180,9 +180,13 @@ export const storageService = {
 
     // If completed, update user total volume
     if (status === 'COMPLETED') {
-      const tx = db.prepare('SELECT user_id, amount FROM transactions WHERE reference = ?').get(reference) as any;
+      const tx = db.prepare('SELECT user_id, amount, currency FROM transactions WHERE reference = ?').get(reference) as any;
       if (tx) {
-        db.prepare('UPDATE users SET total_volume = total_volume + ? WHERE id = ?').run(tx.amount, tx.user_id);
+        let volumeUSD = tx.amount;
+        if (tx.currency === 'NGN') {
+          volumeUSD = tx.amount / 1600; // Standardize user volume in USD (approximate rate)
+        }
+        db.prepare('UPDATE users SET total_volume = total_volume + ? WHERE id = ?').run(volumeUSD, tx.user_id);
       }
     }
     return result;
@@ -206,7 +210,7 @@ export const storageService = {
   },
 
   // 📊 PLATFORM ANALYTICS HANDLER
-  getStats: (rate: number = 1500) => {
+  getStats: (rate: number = 1600) => {
     const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as any).count;
     const allTransactions = (db.prepare('SELECT COUNT(*) as count FROM transactions').get() as any).count;
     const completedTransactions = (db.prepare("SELECT COUNT(*) as count FROM transactions WHERE status = 'COMPLETED'").get() as any).count;
