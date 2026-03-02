@@ -45,7 +45,7 @@ Select the asset you want to purchase:
             const rows = formatButtons21(buttons);
             rows.push([Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await safeEdit(ctx, msg, Markup.inlineKeyboard(rows));
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(rows));
             return ctx.wizard.next();
         } catch (error: any) {
             await ctx.replyWithHTML(`❌ <b>Error:</b> Failed to fetch assets. ${error.message}`, Markup.inlineKeyboard([
@@ -88,7 +88,7 @@ Select the blockchain network:
         const buttons = formatButtons21(assetButtons);
         buttons.push([Markup.button.callback('⬅️ Back', 'back_to_symbol')]);
 
-        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
         return ctx.wizard.next();
     },
 
@@ -136,7 +136,7 @@ Choose your local currency:
             const buttons = formatButtons21(currencyButtons);
             buttons.push([Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]);
 
-            await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
             return ctx.wizard.next();
         } catch (error: any) {
             await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
@@ -203,37 +203,6 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         }
 
         const amount = parseFloat(text.replace(/,/g, ''));
-
-        // Validate transaction limits (₦2,000 - ₦200,000)
-        const MIN_AMOUNT = 2000000000;
-        const MAX_AMOUNT = 20000000000000;
-
-        if (amount < MIN_AMOUNT) {
-            await ctx.replyWithHTML(
-                `⚠️ <b>Amount Too Low</b>\n\n` +
-                `Minimum transaction: <b>₦${MIN_AMOUNT.toLocaleString()}</b>\n` +
-                `You entered: <b>₦${amount.toLocaleString()}</b>\n\n` +
-                `Please enter a larger amount.`,
-                Markup.inlineKeyboard([
-                    [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
-                ])
-            );
-            return;
-        }
-
-        if (amount > MAX_AMOUNT) {
-            await ctx.replyWithHTML(
-                `⚠️ <b>Amount Too High</b>\n\n` +
-                `Maximum transaction: <b>₦${MAX_AMOUNT.toLocaleString()}</b>\n` +
-                `You entered: <b>₦${amount.toLocaleString()}</b>\n\n` +
-                `Please enter a smaller amount or split into multiple transactions.`,
-                Markup.inlineKeyboard([
-                    [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
-                ])
-            );
-            return;
-        }
-
         ctx.wizard.state.data.amount = amount;
 
         try {
@@ -266,7 +235,7 @@ ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.cur
 
 ⏱ <i>Expires in 5 minutes</i>
 `;
-            await safeEdit(ctx, msg, Markup.inlineKeyboard([
+            await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
                 [Markup.button.callback('✅ Confirm & Continue', 'proceed')],
                 [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
             ]));

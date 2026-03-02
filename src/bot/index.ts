@@ -157,7 +157,7 @@ Current Balance: <b>${fees.amount} ${fees.currency}</b>
 
 Please enter the <b>Solana Wallet Address</b> where you want to receive your USDC payout:
 `;
-        await safeEdit(ctx, msg, Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('❌ Cancel', 'action_menu')]
         ]));
 
@@ -279,7 +279,7 @@ bot.action(/^status_(.+)$/, async (ctx) => {
 
         const redoAction = transaction?.type === 'OFFRAMP' ? 'action_offramp' : 'action_onramp';
 
-        await safeEdit(ctx, msg, Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
             [Markup.button.url('📞 Contact Support', 'https://t.me/bitnova_africa')],
             [Markup.button.callback('🔁 Redo Transaction', redoAction)],
@@ -298,11 +298,11 @@ bot.action(/^confirm_(.+)$/, async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Notifying system...').catch(() => { });
     try {
         await switchService.confirmDeposit(reference);
-        await safeEdit(ctx, `✅ <b>Payment Notified</b>\n\nReference: <code>${reference}</code>\n\nWe are now verifying your transfer.`, Markup.inlineKeyboard([
+        await ctx.replyWithHTML(`✅ <b>Payment Notified</b>\n\nReference: <code>${reference}</code>\n\nWe are now verifying your transfer.`, Markup.inlineKeyboard([
             [Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
     } catch (error: any) {
-        await safeEdit(ctx, `❌ *Error:* ${error.message}`);
+        await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
     }
 });
 
@@ -406,7 +406,7 @@ async function handleRates(ctx: any) {
 
 <i>Rates are refreshed every minute.</i>
 `;
-        await safeEdit(ctx, msg, Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Refresh', 'action_rates')],
             [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
         ]));
@@ -421,7 +421,7 @@ async function handleHistory(ctx: any) {
         // Filter out PENDING/EXPIRED as per request - show only meaningful history
         const history = storageService.getTransactionHistory(ctx.from.id, 10, 0, ['PENDING', 'COMPLETED', 'FAILED', 'VERIFIED', 'RECEIVED', 'PROCESSING']);
         if (history.length === 0) {
-            await safeEdit(ctx, `📭 <b>No transaction history found.</b>\n\nStart your first transaction by clicking Buy or Sell!`, Markup.inlineKeyboard([
+            await ctx.replyWithHTML(`📭 <b>No transaction history found.</b>\n\nStart your first transaction by clicking Buy or Sell!`, Markup.inlineKeyboard([
                 [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
             ]));
             return;
@@ -447,7 +447,7 @@ Select a transaction to see details:
         });
 
         buttons.push([Markup.button.callback('🏠 Back to Menu', 'action_menu')]);
-        await safeEdit(ctx, msg, Markup.inlineKeyboard(buttons));
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
     } catch (error: any) {
         await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
     }
@@ -475,7 +475,7 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 <b>Need human help?</b>
 Just join our community group at <a href="https://t.me/bitnova_africa">@bitnova_africa</a> and our team will sort you out! 🌍🤝
 `;
-    await safeEdit(ctx, msg, Markup.inlineKeyboard([
+    await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
     ]));
 }
