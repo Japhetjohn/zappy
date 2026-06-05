@@ -3,7 +3,7 @@
 # Comprehensive Database Migration Script
 # Ensures all columns exist in the users table
 
-DB_PATH="/root/bitnova-bot/bitnova.db"
+DB_PATH="/root/usevelcro-bot/bitnova.db"
 
 echo "🔧 Running comprehensive database migration..."
 

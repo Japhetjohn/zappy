@@ -1,6 +1,6 @@
 module.exports = {
     apps: [{
-        name: 'bitnova-bot',
+        name: 'usevelcro-bot',
         script: 'dist/index.js',
         instances: 1,
         autorestart: true,
@@ -12,7 +12,7 @@ module.exports = {
             NODE_ENV: 'production',
         }
     }, {
-        name: 'bitnova-watcher',
+        name: 'usevelcro-watcher',
         script: 'dist/watcher.js',
         instances: 1,
         autorestart: true,
