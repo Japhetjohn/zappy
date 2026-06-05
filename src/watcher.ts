@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 const HEALTH_URL = `http://localhost:${PORT}/health`;
 const INTERVAL = 60000; // 60 seconds
 
-console.log(`Starting Bitnova Watcher... Monitoring ${HEALTH_URL}`);
+console.log(`Starting Velcro Watcher... Monitoring ${HEALTH_URL}`);
 
 let failureCount = 0;
 
@@ -37,7 +37,7 @@ const checkHealth = async () => {
 
         if (failureCount >= 5) {
             console.error('🚨 BOT IS UNARESPONSIVE FOR 5 MINUTES! 🚨');
-            // Here we could trigger a restart command exec('pm2 restart bitnova-bot')
+            // Here we could trigger a restart command exec('pm2 restart usevelcro-bot')
             // But strict restart policies are safer handled by PM2 manually for now
         }
     }

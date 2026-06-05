@@ -1,4 +1,4 @@
-# Telegram Bot Setup Guide - Bitnova Africa
+# Telegram Bot Setup Guide - Velcro
 
 This guide provides all the information you need to configure your Telegram bot profile via **@BotFather**.
 
@@ -6,7 +6,7 @@ This guide provides all the information you need to configure your Telegram bot 
 
 ## 🤖 Bot Information
 
-**Bot Username:** `@bitnova_africa_bot`
+**Bot Username:** `@usevelcrobot`
 
 ---
 
@@ -14,7 +14,7 @@ This guide provides all the information you need to configure your Telegram bot 
 
 ### 1. Bot Name
 ```
-Bitnova Africa
+Velcro
 ```
 
 ### 2. Bot Description (Short - shown in chat list)
@@ -24,7 +24,7 @@ Your friendly crypto assistant for buying and selling digital assets in Africa. 
 
 ### 3. About Text (Detailed - shown in bot profile)
 ```
-Bitnova Africa makes crypto trading simple and accessible across the continent.
+Velcro makes crypto trading simple and accessible across the continent.
 
 💰 Buy Crypto - Get digital assets sent directly to your wallet
 💸 Sell Crypto - Turn your crypto into cash in your bank account
@@ -38,7 +38,7 @@ Ready to get started? Just tap /start!
 Set these commands via `/setcommands` in BotFather:
 
 ```
-start - Launch Bitnova Africa and see main menu
+start - Launch Velcro and see main menu
 onramp - Buy crypto with local currency
 offramp - Sell crypto for local currency
 stats - View platform statistics (admin only)
@@ -50,7 +50,7 @@ help - Get help and support information
 ## 🎨 Optional Enhancements
 
 ### Bot Profile Photo
-- Use a professional logo with the Bitnova Africa branding
+- Use a professional logo with the Velcro branding
 - Recommended size: 512x512 pixels
 - Format: PNG with transparent background
 
@@ -80,7 +80,7 @@ After setup, your bot profile should look professional and clearly communicate:
 - Who it serves (African users)
 - How to get started (/start command)
 
-Your bot is now live at: **https://t.me/bitnova_africa_bot**
+Your bot is now live at: **https://t.me/usevelcrobot**
 
 ---
 

@@ -78,7 +78,7 @@ bot.use(stage.middleware());
 const getWelcomeMsg = (name: string) => `
 Hello ${name} 👋
 
-My name is <b>Bitnova Africa</b>, your friendly crypto assistant! 🤖✨
+My name is <b>Velcro</b>, your friendly crypto assistant! 🤖✨
 
 I'm here to make buying and selling crypto super easy, fast, and secure for you. Whether you want to turn cash into crypto or crypto into cash, I've got you covered! 🚀
 
@@ -100,7 +100,7 @@ bot.command('stats', async (ctx) => {
     const username = ctx.from?.username?.toLowerCase();
 
     if (!username || !ADMIN_USERNAMES.includes(username)) {
-        await ctx.replyWithHTML(`🔒 <b>Access Denied</b>\n\nSorry, this command is for <b>Bitnova Admins</b> only.\n\nIf you need help, type /help or join our community! 🌍`);
+        await ctx.replyWithHTML(`🔒 <b>Access Denied</b>\n\nSorry, this command is for <b>Velcro Admins</b> only.\n\nIf you need help, type /help or join our community! 🌍`);
         return;
     }
 
@@ -109,7 +109,7 @@ bot.command('stats', async (ctx) => {
         const fees = await switchService.getDeveloperFees();
 
         const msg = `
-📊 <b>Bitnova Africa Platform Stats</b>
+📊 <b>Velcro Platform Stats</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -281,7 +281,7 @@ bot.action(/^status_(.+)$/, async (ctx) => {
 
         await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
-            [Markup.button.url('📞 Contact Support', 'https://t.me/bitnova_africa')],
+            [Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro')],
             [Markup.button.callback('🔁 Redo Transaction', redoAction)],
             [Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));
@@ -455,7 +455,7 @@ Select a transaction to see details:
 
 async function handleHelp(ctx: any) {
     const msg = `
-❓ <b>How does Bitnova Africa work?</b>
+❓ <b>How does Velcro work?</b>
 
 I'm designed to be the simplest way to move between cash and crypto! 🌍
 
@@ -473,7 +473,7 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 • Get cash in your bank account instantly! 💸
 
 <b>Need human help?</b>
-Just join our community group at <a href="https://t.me/bitnova_africa">@bitnova_africa</a> and our team will sort you out! 🌍🤝
+Just join our community group at <a href="https://t.me/usevelcro">@usevelcro</a> and our team will sort you out! 🌍🤝
 `;
     await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
@@ -505,7 +505,7 @@ bot.catch((err: any, ctx: Context) => {
 
 // Start Bot
 export async function startBot() {
-    logger.info('🚀 Bitnova Africa UX 2026 Engine Starting...');
+    logger.info('🚀 Velcro UX 2026 Engine Starting...');
 
     const tryConnect = async () => {
         try {
@@ -528,7 +528,7 @@ export async function startBot() {
         logger.info('📡 Attempting to launch bot...');
         try {
             await bot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => { });
-            logger.info('✨ Bitnova Africa is LIVE!');
+            logger.info('✨ Velcro is LIVE!');
             await bot.launch({ allowedUpdates: ['message', 'callback_query'] });
         } catch (err: any) {
             logger.error(`❌ Launch failed: ${err.message}`);

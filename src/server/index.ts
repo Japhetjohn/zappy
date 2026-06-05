@@ -17,7 +17,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 app.get('/', (req: Request, res: Response) => {
-    res.status(200).send('Bitnova Africa Bot Server is Running ⚡️');
+    res.status(200).send('Velcro Bot Server is Running ⚡️');
 });
 
 // --- Admin API ---

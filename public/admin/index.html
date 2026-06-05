@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bitnova Private Admin | Insights</title>
+    <title>Velcro Private Admin | Insights</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -565,7 +565,7 @@
         <div class="auth-card">
             <div class="logo-box" style="color: var(--sidebar-bg); justify-content: center; margin-bottom: 30px;">
                 <i data-lucide="shield-check"></i>
-                <span>Bitnova Admin</span>
+                <span>Velcro Admin</span>
             </div>
             <h2>Admin Login</h2>
             <p>Enter your secure credentials to manage the platform.</p>
@@ -580,7 +580,7 @@
     <div class="mobile-header">
         <div class="logo-box" style="margin-bottom: 0; padding-left: 0;">
             <i data-lucide="zap"></i>
-            <span style="font-size: 18px;">Bitnova</span>
+            <span style="font-size: 18px;">Velcro</span>
         </div>
         <button class="hamburger" onclick="toggleSidebar()">
             <i data-lucide="menu"></i>
@@ -594,7 +594,7 @@
     <aside id="main-sidebar">
         <div class="logo-box">
             <i data-lucide="zap"></i>
-            <span>Bitnova Admin</span>
+            <span>Velcro Admin</span>
         </div>
         <nav>
             <ul>
@@ -928,7 +928,7 @@
 
     <script>
         // Existing script content...
-        let adminKey = localStorage.getItem('bitnova_admin_key') || '';
+        let adminKey = localStorage.getItem('velcro_admin_key') || '';
         let currentTxRef = null;
 
         async function cancelCurrentTransaction() {
@@ -1008,7 +1008,7 @@
                 document.getElementById('modal-amount').innerText = `${symbol}${Number(tx.amount).toLocaleString()}`;
 
                 document.getElementById('modal-username').innerText = `@${tx.username || 'unknown'}`;
-                document.getElementById('modal-fullname').innerText = tx.full_name || 'Bitnova User';
+                document.getElementById('modal-fullname').innerText = tx.full_name || 'Velcro User';
                 document.getElementById('modal-user-avatar').innerText = (tx.username || 'U').charAt(0);
 
                 document.getElementById('modal-date').innerText = new Date(tx.created_at).toLocaleString();
@@ -1071,7 +1071,7 @@
 
             if (res.ok) {
                 adminKey = pass;
-                localStorage.setItem('bitnova_admin_key', adminKey);
+                localStorage.setItem('velcro_admin_key', adminKey);
                 document.getElementById('auth-overlay').classList.add('hidden');
                 setTimeout(() => { document.getElementById('auth-overlay').style.display = 'none'; }, 500);
                 fetchData();
@@ -1371,7 +1371,7 @@
         }
 
         function logout() {
-            localStorage.removeItem('bitnova_admin_key');
+            localStorage.removeItem('velcro_admin_key');
             location.reload();
         }
 

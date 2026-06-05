@@ -197,7 +197,7 @@ export const storageService = {
     return stmt.get(reference) as any;
   },
 
-  // Expanded user tracking for Bitnova Africa scale
+  // Expanded user tracking for Velcro scale
   upsertUser: (id: number, username: string, fullName?: string) => {
     const stmt = db.prepare(`
         INSERT INTO users (id, username, full_name, last_seen) VALUES (?, ?, ?, CURRENT_TIMESTAMP)

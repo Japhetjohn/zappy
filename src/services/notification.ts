@@ -45,7 +45,7 @@ No action needed. Your funds are safe. ✅
 Ref: <code>${reference}</code>
 ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
                     break;
 
@@ -63,7 +63,7 @@ No action needed. Sit tight! 🚀
 Ref: <code>${reference}</code>
 ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
                     break;
 
@@ -80,7 +80,7 @@ This usually takes less than 2 minutes. ⏳
 
 Ref: <code>${reference}</code>
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
                     break;
 
@@ -107,7 +107,7 @@ ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
 Type <b>Menu</b> to continue 🚀
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
                         } else {
                             // Bought crypto → Got USDT
@@ -123,7 +123,7 @@ Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>\n` : ''}
 Type <b>Menu</b> to continue 🚀
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
                         }
                     }
@@ -144,7 +144,7 @@ Need help? Contact our support team.
 
 Type <b>Menu</b> to try again 🔄
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
                     break;
 
@@ -161,7 +161,7 @@ No funds were charged. You can start a new transaction anytime!
 
 Type <b>Menu</b> to start fresh 🔄
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
                     break;
 
@@ -178,7 +178,7 @@ ${message ? `\n💬 <b>Reason:</b> ${message}` : ''}
 No funds were charged.
 Type <b>Menu</b> to start a new transaction 🔄
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
                     break;
 
@@ -193,7 +193,7 @@ Type <b>Menu</b> to start a new transaction 🔄
 ${message ? `💬 ${message}` : ''}
 ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
-<i>Powered by Bitnova Africa</i> ⚡️
+<i>Powered by Velcro</i> ⚡️
 `;
             }
 
@@ -203,7 +203,7 @@ ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
                 reply_markup: {
                     inline_keyboard: [
                         ...(explorerLink ? [[{ text: '🔍 View on Explorer', url: explorerLink }]] : []),
-                        [{ text: '📞 Contact Support', url: 'https://t.me/bitnova_africa' }],
+                        [{ text: '📞 Contact Support', url: 'https://t.me/usevelcro' }],
                         [{ text: '🏠 Main Menu', callback_data: 'action_menu' }]
                     ]
                 }

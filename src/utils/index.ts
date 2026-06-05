@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 
 /**
- * Shared utility functions for Bitnova Africa
+ * Shared utility functions for Velcro
  */
 
 /**
