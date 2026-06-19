@@ -20,7 +20,12 @@ echo "🚀 Starting deployment to $VPS_IP..."
 
 # 2. Package files (including source for remote build)
 echo "📦 Packaging files..."
-tar -czf $ZIP_FILE src public scripts package.json tsconfig.json ecosystem.config.js .env --exclude="*.map"
+# Construct target list based on existing files
+TARGETS="src public package.json tsconfig.json ecosystem.config.js"
+[ -d "scripts" ] && TARGETS="$TARGETS scripts"
+[ -f ".env" ] && TARGETS="$TARGETS .env"
+
+tar --exclude="*.map" -czf $ZIP_FILE $TARGETS
 
 # 3. Transfer via scp
 echo "📤 Transferring package to VPS..."
@@ -43,19 +48,12 @@ SSHPASS="$VPS_PASS" $HOME/.local/bin/sshpass -e ssh -o StrictHostKeyChecking=no 
     fi
 
     mkdir -p logs
-    # Safeguard: Ensure no orphaned processes are clinging to the bot token
-    echo "🧹 Cleaning up potential conflicts..."
-    ps aux | grep 'usevelcro-bot' | grep -v grep | awk '{print $2}' | xargs kill -9 > /dev/null 2>&1 || true
-
-    pm2 describe usevelcro-bot > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "🔄 Reloading existing PM2 process..."
-        pm2 reload ecosystem.config.js --env production
-    else
-        echo "🚀 Starting new PM2 process..."
-        pm2 start ecosystem.config.js --env production
-    fi
+    # PM2 Management
+    echo "🚀 Restarting apps via PM2..."
+    pm2 delete usevelcro-bot usevelcro-watcher > /dev/null 2>&1 || true
+    pm2 start ecosystem.config.js --env production
     pm2 save
+    
     echo "✨ Deployment successful!"
 EOF
 

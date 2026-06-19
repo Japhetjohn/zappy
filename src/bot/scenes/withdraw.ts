@@ -8,7 +8,7 @@ export const withdrawalWizard = new Scenes.WizardScene(
             if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => {});
             const stats = storageService.getUserReferralStats(ctx.from.id);
             if (stats.balance < 5) {
-                await ctx.replyWithHTML(`⚠️ You need a minimum balance of <b>$5</b> to withdraw.\n\nYour current balance is <b>$${stats.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b>`, Markup.inlineKeyboard([
+                await ctx.replyWithHTML(`⚠️ You need a minimum balance of <b>$5</b> to withdraw.\n\nYour current balance is <b>$${stats.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</b>`, Markup.inlineKeyboard([
                     [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
                 ]));
                 return ctx.scene.leave();
@@ -17,7 +17,7 @@ export const withdrawalWizard = new Scenes.WizardScene(
             await ctx.replyWithHTML(`
 💸 <b>Withdraw Referral Earnings</b>
 
-Your Balance: <b>$${stats.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b>
+Your Balance: <b>$${stats.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</b>
 
 Enter the amount you wish to withdraw (Min: $5):
             `, Markup.inlineKeyboard([[Markup.button.callback('❌ Cancel', 'cancel')]]));
@@ -38,7 +38,7 @@ Enter the amount you wish to withdraw (Min: $5):
             return ctx.reply('⚠️ Please enter a valid amount of at least 5.');
         }
         if (amount > ctx.wizard.state.balance) {
-            return ctx.reply(`⚠️ You only have $${ctx.wizard.state.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}. Please enter a smaller amount.`);
+            return ctx.reply(`⚠️ You only have $${ctx.wizard.state.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}. Please enter a smaller amount.`);
         }
         
         ctx.wizard.state.amount = amount;

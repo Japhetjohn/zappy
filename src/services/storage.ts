@@ -72,6 +72,10 @@ db.exec(`
   );
 `);
 
+try {
+  db.prepare('ALTER TABLE transactions ADD COLUMN wallet_address TEXT').run();
+} catch (e) { }
+
 // Safe migrations for existing databases
 
 
@@ -233,10 +237,11 @@ export const storageService = {
     amount: number;
     currency?: string;
     status?: string;
+    walletAddress?: string;
   }) => {
     const stmt = db.prepare(`
-      INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status, wallet_address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       data.userId,
@@ -245,7 +250,8 @@ export const storageService = {
       data.asset,
       data.amount,
       data.currency || 'USD',
-      data.status || 'PENDING'
+      data.status || 'PENDING',
+      data.walletAddress || null
     );
 
     // Increment user's tx count (on a transaction basis)
@@ -481,6 +487,31 @@ export const storageService = {
     }).sort((a, b) => b.total_volume - a.total_volume);
   },
 
+  getDetailedReferralStats: () => {
+    const referrers = db.prepare(`
+      SELECT 
+        u.id, u.username, u.full_name, u.referral_code, u.referral_count, 
+        u.referral_balance, u.total_referral_earnings
+      FROM users u
+      WHERE u.referral_count > 0
+      ORDER BY u.total_referral_earnings DESC
+    `).all() as any[];
+
+    return referrers.map(r => {
+      const referrals = db.prepare(`
+        SELECT id, username, full_name, total_volume, created_at
+        FROM users
+        WHERE referred_by = ?
+        ORDER BY total_volume DESC
+      `).all(r.id);
+      
+      return {
+        ...r,
+        referrals
+      };
+    });
+  },
+
   getUserDetailStats: (userId: number, rate: number = 1600) => {
     const statsResult = db.prepare(`
       SELECT 
@@ -517,7 +548,7 @@ export const storageService = {
   getTransactionDetails: (reference: string) => {
     return db.prepare(`
       SELECT 
-        t.id, t.user_id, t.reference, t.type, t.asset, t.amount, t.currency, t.status, t.hash, t.created_at, t.updated_at,
+        t.id, t.user_id, t.reference, t.type, t.asset, t.amount, t.currency, t.status, t.hash, t.created_at, t.updated_at, t.wallet_address,
         u.username, u.full_name, u.id as user_db_id
       FROM transactions t
       LEFT JOIN users u ON t.user_id = u.id

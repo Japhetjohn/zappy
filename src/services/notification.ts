@@ -21,6 +21,7 @@ export class NotificationService {
             destinationCurrency?: string;
             rate?: number;
             type?: string;
+            walletAddress?: string;
         }
     ) {
         try {
@@ -101,6 +102,7 @@ Ref: <code>${reference}</code>
 <b>${amount} ${assetName}</b> has been sold successfully.
 ${rate ? `📊 Rate: ${currencySymbol}${Number(rate).toLocaleString()}` : ''}
 ${destAmount ? `\n💰 <b>${currencySymbol}${Number(destAmount).toLocaleString()}</b> has been sent to your bank account.` : ''}
+${extraData?.walletAddress ? `(Account: <code>${extraData.walletAddress}</code>)` : ''}
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
@@ -114,10 +116,11 @@ Type <b>Menu</b> to continue 🚀
                             notifyMsg = `
 ✅ <b>Transaction Complete!</b>
 
-Your purchase of <b>${amount} ${assetName}</b> is complete!
+Your purchase of <b>${extraData?.destinationAmount ? extraData.destinationAmount : amount} ${assetName}</b> is complete!
 ${rate ? `📊 Rate: ₦${Number(rate).toLocaleString()}` : ''}
 
 Crypto has been sent to your wallet. 🎉
+${extraData?.walletAddress ? `(Wallet: <code>${extraData.walletAddress}</code>)` : ''}
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>\n` : ''}
@@ -223,7 +226,7 @@ ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
 Your referral just completed a transaction, and you've earned a portion of the volume!
 
-💰 <b>Amount Credited:</b> $${Number(amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+💰 <b>Amount Credited:</b> $${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
 
 Keep sharing your referral link to earn more! 🚀
             `;

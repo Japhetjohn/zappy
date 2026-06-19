@@ -607,6 +607,12 @@
                 <li onclick="switchSection('transactions')" id="nav-transactions">
                     <i data-lucide="refresh-ccw"></i> Transactions
                 </li>
+                <li onclick="switchSection('withdrawals')" id="nav-withdrawals">
+                    <i data-lucide="banknote"></i> Withdrawals
+                </li>
+                <li onclick="switchSection('referrals')" id="nav-referrals">
+                    <i data-lucide="share-2"></i> Referrals
+                </li>
                 <li onclick="switchSection('settings')" id="nav-settings">
                     <i data-lucide="settings"></i> Settings
                 </li>
@@ -673,25 +679,10 @@
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon"><i data-lucide="check-circle"></i></div>
-                    <div class="stat-info">
-                        <h4>Completed</h4>
-                        <span id="stat-completed-txs">0</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i data-lucide="gift"></i></div>
-                    <div class="stat-info">
-                        <h4>Bonus Points</h4>
-                        <span id="stat-total-points" style="font-size: 14px;">0 awarded | 0 redeemed</span>
-                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Loyalty Program</div>
-                    </div>
-                </div>
-                <div class="stat-card">
                     <div class="stat-icon"><i data-lucide="users"></i></div>
                     <div class="stat-info">
                         <h4>Referrals</h4>
-                        <span id="stat-total-referrals" style="font-size: 14px;">0 users | 0 points</span>
+                        <span id="stat-total-referrals" style="font-size: 14px;">0 users | $0.00</span>
                         <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">Referral Program</div>
                     </div>
                 </div>
@@ -824,7 +815,62 @@
             </div>
         </div>
 
-        <!-- Settings Content -->
+        <!-- Withdrawals Content -->
+        <div id="section-withdrawals" class="view-content">
+            <header>
+                <div class="header-title">
+                    <h1>Withdrawal Requests</h1>
+                    <p>Review and approve user referral cashouts.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="refresh-btn" onclick="fetchData()"><i data-lucide="rotate-cw"></i></button>
+                </div>
+            </header>
+
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Amount</th>
+                            <th>Wallet / Chain</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="withdrawal-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Referrals Content -->
+        <div id="section-referrals" class="view-content">
+            <header>
+                <div class="header-title">
+                    <h1>Referral Network</h1>
+                    <p>Track earnings and growth via word-of-mouth.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="refresh-btn" onclick="fetchData()"><i data-lucide="rotate-cw"></i></button>
+                </div>
+            </header>
+
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Referrer</th>
+                            <th>Referrals</th>
+                            <th>Current Balance</th>
+                            <th>Total Earned</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="referral-body"></tbody>
+                </table>
+            </div>
+        </div>
         <div id="section-settings" class="view-content">
             <header>
                 <div class="header-title">
@@ -842,21 +888,6 @@
                     <button class="refresh-btn" onclick="fetchData()" title="Refresh Settings"
                         style="height: 50px; width: 50px; flex-shrink: 0;"><i data-lucide="rotate-cw"></i></button>
                 </div>
-
-                <label
-                    style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; display: block;">POINTS
-                    PER COMPLETED TX</label>
-                <input type="number" id="points-per-tx-input" placeholder="e.g. 1" style="margin-bottom: 20px;">
-
-                <label
-                    style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; display: block;">POINT
-                    VALUE (% BONUS)</label>
-                <input type="number" step="0.1" id="points-value-input" placeholder="e.g. 0.2" style="margin-bottom: 20px;">
-
-                <label
-                    style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; display: block;">MAX
-                    POINTS PER TX</label>
-                <input type="number" id="max-points-input" placeholder="e.g. 5" style="margin-bottom: 20px;">
 
                 <button class="btn-primary" onclick="saveSettings()">Save Configuration</button>
                 <p id="save-msg" style="margin-top: 15px; font-size: 14px; text-align: center; color: var(--success);">
@@ -1144,22 +1175,29 @@
                     }
 
                     document.getElementById('stat-total-txs').innerText = stats.allTransactions || 0;
-                    document.getElementById('stat-completed-txs').innerText = stats.completedTransactions || 0;
-
-                    if (stats.points) {
-                        const awarded = Number(stats.points.totalAwarded || 0).toLocaleString();
-                        const redeemed = Number(stats.points.totalRedeemed || 0).toLocaleString();
-                        document.getElementById('stat-total-points').innerText = `${awarded} awarded | ${redeemed} redeemed`;
-                    }
                 }
 
-                // 2. Referrals
+                // 2. Referrals summary for card
                 const referralsRes = await fetch('/api/admin/referrals', { headers });
                 if (referralsRes.ok) {
                     const refStats = await referralsRes.json();
                     const refUsers = Number(refStats.totalReferrals || 0).toLocaleString();
-                    const refPoints = Number(refStats.totalReferralPoints || 0).toLocaleString();
-                    document.getElementById('stat-total-referrals').innerText = `${refUsers} users | ${refPoints} points`;
+                    const refEarnings = Number(refStats.totalReferralPoints || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                    document.getElementById('stat-total-referrals').innerText = `${refUsers} users | $${refEarnings}`;
+                }
+
+                // 2b. Detailed Referrals
+                const refDetailedRes = await fetch('/api/admin/referrals/detailed', { headers });
+                if (refDetailedRes.ok) {
+                    const detailedRefs = await refDetailedRes.json();
+                    renderReferrals(detailedRefs);
+                }
+
+                // 2c. Withdrawals
+                const withdrawalsRes = await fetch('/api/admin/withdrawals', { headers });
+                if (withdrawalsRes.ok) {
+                    const withdrawals = await withdrawalsRes.json();
+                    renderWithdrawals(withdrawals);
                 }
 
                 // 3. Transactions
@@ -1181,10 +1219,9 @@
                 const settingsRes = await fetch('/api/admin/settings', { headers });
                 if (settingsRes.ok) {
                     const settings = await settingsRes.json();
-                    document.getElementById('fee-input').value = settings.platform_fee || '1';
-                    document.getElementById('points-per-tx-input').value = settings.points_per_tx || '1';
-                    document.getElementById('points-value-input').value = settings.points_value_pct || '0.1';
-                    document.getElementById('max-points-input').value = settings.max_points_per_tx || '5';
+                    if (document.getElementById('fee-input')) {
+                        document.getElementById('fee-input').value = settings.platform_fee || '1';
+                    }
                 }
 
                 lucide.createIcons();
@@ -1335,6 +1372,100 @@
             rows.forEach(row => table.appendChild(row));
         }
 
+        function renderWithdrawals(data) {
+            const body = document.getElementById('withdrawal-body');
+            if (!body) return;
+            body.innerHTML = data.map(w => `
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <div class="avatar">${(w.username || 'U').charAt(0)}</div>
+                            <div>
+                                <b>@${w.username || 'unknown'}</b>
+                                <div style="font-size: 11px; color: var(--text-secondary);">${w.name || ''}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><b style="color: var(--sidebar-bg);">$${Number(w.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</b></td>
+                    <td>
+                        <div style="font-size: 13px;"><code>${w.wallet_address}</code></div>
+                        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary);">${w.chain}</div>
+                    </td>
+                    <td><span class="status-pill ${w.status.toLowerCase()}">${w.status}</span></td>
+                    <td>${new Date(w.created_at).toLocaleDateString()}</td>
+                    <td>
+                        ${w.status === 'PENDING' ? `
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn-view" onclick="approveWithdrawal(${w.id})" style="border-color: var(--success); color: var(--success);">Approve</button>
+                                <button class="btn-view" onclick="rejectWithdrawal(${w.id})" style="border-color: var(--failed); color: var(--failed);">Reject</button>
+                            </div>
+                        ` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function approveWithdrawal(id) {
+            if (!confirm('Are you sure you want to APPROVE this withdrawal?')) return;
+            try {
+                const res = await fetch(`/api/admin/withdrawals/${id}/approve`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${adminKey}` }
+                });
+                if (res.ok) { alert('Withdrawal Approved!'); fetchData(); }
+                else alert('Failed to approve');
+            } catch (e) { alert('Error approving'); }
+        }
+
+        async function rejectWithdrawal(id) {
+            if (!confirm('Are you sure you want to REJECT this withdrawal? The funds will be returned to the user.')) return;
+            try {
+                const res = await fetch(`/api/admin/withdrawals/${id}/reject`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${adminKey}` }
+                });
+                if (res.ok) { alert('Withdrawal Rejected!'); fetchData(); }
+                else alert('Failed to reject');
+            } catch (e) { alert('Error rejecting'); }
+        }
+
+        function renderReferrals(data) {
+            const body = document.getElementById('referral-body');
+            if (!body) return;
+            body.innerHTML = data.map(r => `
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <div class="avatar">${(r.username || 'U').charAt(0)}</div>
+                            <b>@${r.username || 'unknown'}</b>
+                        </div>
+                    </td>
+                    <td><b>${r.referral_count}</b> users</td>
+                    <td><b style="color: var(--success)">$${Number(r.referral_balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</b></td>
+                    <td><b>$${Number(r.total_referral_earnings).toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></td>
+                    <td><button class="btn-view" onclick="toggleReferralList(${r.id})">Show Referrals</button></td>
+                </tr>
+                <tr id="ref-list-${r.id}" style="display: none;">
+                    <td colspan="5" style="background: #f8f9fc; padding: 20px;">
+                        <h4 style="margin-bottom: 10px;">Users referred by @${r.username}:</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                            ${r.referrals.map(ref => `
+                                <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+                                    <b>@${ref.username}</b>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">Volume: $${Number(ref.total_volume).toFixed(2)}</div>
+                                </div>
+                            `).join('') || '<div style="color: var(--text-secondary);">No active referrals found.</div>'}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function toggleReferralList(id) {
+            const el = document.getElementById(`ref-list-${id}`);
+            el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+        }
+
         async function withdrawFees() {
             const btn = document.getElementById('btn-withdraw-fees');
             const origText = btn.innerHTML;
@@ -1381,9 +1512,6 @@
 
         async function saveSettings() {
             const fee = document.getElementById('fee-input').value;
-            const pointsPerTx = document.getElementById('points-per-tx-input').value;
-            const pointsValue = document.getElementById('points-value-input').value;
-            const maxPoints = document.getElementById('max-points-input').value;
 
             const headers = {
                 'Authorization': `Bearer ${adminKey}`,
@@ -1391,10 +1519,7 @@
             };
 
             const settings = [
-                { key: 'platform_fee', value: fee },
-                { key: 'points_per_tx', value: pointsPerTx },
-                { key: 'points_value_pct', value: pointsValue },
-                { key: 'max_points_per_tx', value: maxPoints }
+                { key: 'platform_fee', value: fee }
             ];
 
             let allOk = true;

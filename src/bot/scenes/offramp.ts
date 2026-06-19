@@ -535,7 +535,8 @@ Choose your receiving bank:
                 type: 'OFFRAMP',
                 asset: ctx.wizard.state.data.asset.id,
                 amount: ctx.wizard.state.data.amount,
-                currency: 'USD'
+                currency: 'USD',
+                walletAddress: ctx.wizard.state.data.beneficiary.accountNumber
             });
 
             const msg = `
@@ -560,7 +561,8 @@ Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 💡 <i>Your payment will be processed automatically after confirmation.</i>
 `;
             const buttons = [
-                ...(MAIN_KEYBOARD.reply_markup?.inline_keyboard || [])
+                [Markup.button.callback('✅ I Have Paid', 'action_confirm_payment')],
+                [Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro')]
             ];
 
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));

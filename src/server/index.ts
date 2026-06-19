@@ -95,7 +95,12 @@ app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req: Re
 
                 // Trigger notification if completed
                 if (status.status === 'COMPLETED') {
-                    await notificationService.sendUpdate(tx.user_id, reference, 'COMPLETED', tx.asset, tx.amount, finalHash);
+                    await notificationService.sendUpdate(tx.user_id, reference, 'COMPLETED', tx.asset, tx.amount, finalHash, undefined, {
+                        destinationAmount: tx.destination_amount || status.destination?.amount,
+                        destinationCurrency: tx.destination_currency || status.destination?.currency,
+                        walletAddress: tx.wallet_address || status.destination?.address,
+                        type: tx.type
+                    });
                 }
 
                 return res.json({ success: true, message: `Synced status: ${status.status}`, data: status });
@@ -128,7 +133,10 @@ app.post('/api/admin/transactions/:reference/confirm', adminAuth, async (req: Re
         storageService.updateTransactionStatus(reference, newStatus, hashToUse);
 
         // Notify user immediately that we are processing
-        await notificationService.sendUpdate(tx.user_id, reference, newStatus, tx.asset, tx.amount, hashToUse);
+        await notificationService.sendUpdate(tx.user_id, reference, newStatus, tx.asset, tx.amount, hashToUse, undefined, {
+            walletAddress: tx.wallet_address,
+            type: tx.type
+        });
 
         return res.json({ success: true, data: result });
     } catch (e: any) {
@@ -232,7 +240,13 @@ app.post('/api/admin/withdraw', adminAuth, async (req: Request, res: Response): 
 app.get('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
     try {
         const settings = storageService.getSettings();
-        res.json(settings);
+        // Remove points-related settings from view if they existence
+        const filtered: any = {};
+        const keysToKeep = ['platform_fee'];
+        keysToKeep.forEach(k => {
+            if (settings[k] !== undefined) filtered[k] = settings[k];
+        });
+        res.json(filtered);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }
@@ -241,6 +255,15 @@ app.get('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
 const ALLOWED_SETTINGS_KEYS = [
     'platform_fee'
 ];
+
+app.get('/api/admin/referrals/detailed', adminAuth, (req: Request, res: Response) => {
+    try {
+        const stats = storageService.getDetailedReferralStats();
+        res.json(stats);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 app.post('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
     try {
@@ -374,9 +397,8 @@ app.post('/webhook', async (req: Request, res: Response) => {
         storageService.updateTransactionStatus(reference, status, txHash);
 
         // Notify user via shared service - only for critical updates
-        const notifiableStatuses = ['VERIFIED', 'COMPLETED', 'FAILED', 'EXPIRED'];
+        const notifiableStatuses = ['COMPLETED', 'FAILED', 'EXPIRED'];
         if (notifiableStatuses.includes(status)) {
-            // Fetch extra data for a richer notification if possible
             let extra: any = { type: transaction.type };
             if (status === 'COMPLETED' || status === 'VERIFIED') {
                 const txDetail = storageService.getTransactionDetails(reference);
@@ -384,7 +406,10 @@ app.post('/webhook', async (req: Request, res: Response) => {
                     extra.destinationAmount = txDetail.destination_amount;
                     extra.destinationCurrency = txDetail.destination_currency;
                     extra.rate = txDetail.rate;
+                    extra.walletAddress = txDetail.wallet_address;
                 }
+            } else {
+                extra.walletAddress = transaction.wallet_address;
             }
 
             await notificationService.sendUpdate(

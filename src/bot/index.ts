@@ -307,6 +307,19 @@ bot.action('action_referrals', async (ctx) => {
     await handleReferrals(ctx);
 });
 
+bot.action('action_confirm_payment', async (ctx) => {
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Payment noted! ✅').catch(() => { });
+    await ctx.replyWithHTML(`
+✨ <b>Payment Acknowledged</b>
+
+Great! Our system is now automatically searching for your payment on the network.
+
+You will receive a notification here as soon as it is detected and confirmed. This usually takes 1-5 minutes.
+
+You can also check your transaction history at any time using the <b>History</b> button.
+`);
+});
+
 bot.action('action_withdraw_referrals', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
     await ctx.scene.enter('withdrawal-wizard');
@@ -377,8 +390,8 @@ async function handleReferrals(ctx: any) {
 
 👤 <b>Total Referred Users:</b> ${stats.referralCount}
 
-💰 <b>Current Balance:</b> $${stats.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-💵 <b>Total Lifetime Earnings:</b> $${stats.totalEarned.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+💰 <b>Current Balance:</b> $${stats.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+💵 <b>Total Lifetime Earnings:</b> $${stats.totalEarned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
 
 💡 <i>You earn 0.1% on all transactions completed by your referrals! Share your link to start earning.</i>
 

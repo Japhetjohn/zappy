@@ -395,7 +395,8 @@ Is this correct?
                 type: 'ONRAMP',
                 asset: ctx.wizard.state.data.asset.id,
                 amount: ctx.wizard.state.data.amount,
-                currency: ctx.wizard.state.data.currency
+                currency: ctx.wizard.state.data.currency,
+                walletAddress: walletAddress
             });
 
             const msg = `
@@ -425,7 +426,8 @@ You will be notified  once the funds are received.
 `;
 
             const buttons = [
-                ...(MAIN_KEYBOARD.reply_markup?.inline_keyboard || [])
+                [Markup.button.callback('✅ I Have Paid', 'action_confirm_payment')],
+                [Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro')]
             ];
 
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));
