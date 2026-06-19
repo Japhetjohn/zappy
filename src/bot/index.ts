@@ -51,10 +51,6 @@ bot.use((ctx, next) => {
 // ═══════════════════════════════════════════════════════════
 // 🏠 START COMMAND ( Global Priority )
 // ═══════════════════════════════════════════════════════════
-bot.command('points', async (ctx) => {
-    await ctx.reply('⚠️ The points system has been replaced with cash referral rewards! Type /referrals to see your earnings.');
-});
-
 bot.command('referrals', async (ctx) => {
     if (!ctx.from) return;
     return handleReferrals(ctx);
@@ -95,7 +91,7 @@ bot.command('start', async (ctx) => {
                     if (recorded) {
                         const referredUsername = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Someone');
                         try {
-                            await bot.telegram.sendMessage(referrerId, `${referredUsername} used your referral link, you have earned 5 points, powered by usevelcro.com`);
+                            await bot.telegram.sendMessage(referrerId, `${referredUsername} used your referral link! You will earn a percentage of every transaction they complete.`);
                         } catch (notifyErr: any) {
                             logger.error(`Failed to notify referrer ${referrerId}: ${notifyErr.message}`);
                         }
@@ -304,11 +300,6 @@ bot.action('action_help', async (ctx) => {
 bot.action('action_history', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching history...').catch(() => { });
     await handleHistory(ctx);
-});
-
-bot.action('action_points', async (ctx) => {
-    if (ctx.callbackQuery) await ctx.answerCbQuery('Points feature deprecated').catch(() => { });
-    await ctx.reply('⚠️ The points system has been replaced with cash referral rewards! Type /referrals to see your earnings.');
 });
 
 bot.action('action_referrals', async (ctx) => {

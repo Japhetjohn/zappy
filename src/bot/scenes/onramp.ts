@@ -207,17 +207,11 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         ctx.wizard.state.data.amount = amount;
 
         try {
-            const pointSettings = storageService.getPointSettings();
-            const userPoints = storageService.getUserPoints(ctx.from.id);
-            const redeemablePoints = Math.min(userPoints, pointSettings.maxPerTx);
-            const pointsDiscountPct = redeemablePoints * pointSettings.valuePct;
-
             const settings = storageService.getSettings();
             const platformFeeRaw = settings.platform_fee || config.developerFee.toString();
             const platformFee = parseFloat(platformFeeRaw);
 
-            // Show base quote (without points) and bonus quote (with points)
-            const baseQuote = await switchService.getOnrampQuote(
+            const quote = await switchService.getOnrampQuote(
                 amount,
                 ctx.wizard.state.data.country,
                 ctx.wizard.state.data.asset.id,
@@ -225,48 +219,19 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
                 platformFee
             );
 
-            const bonusQuote = await switchService.getOnrampQuote(
-                amount,
-                ctx.wizard.state.data.country,
-                ctx.wizard.state.data.asset.id,
-                ctx.wizard.state.data.currency,
-                undefined,
-                pointsDiscountPct
-            );
-
-            ctx.wizard.state.quote = bonusQuote;
-            ctx.wizard.state.baseQuote = baseQuote;
+            ctx.wizard.state.quote = quote;
             ctx.wizard.state.platformFee = platformFee;
-            ctx.wizard.state.pointsRedeemed = redeemablePoints;
-            ctx.wizard.state.pointsDiscountPct = pointsDiscountPct;
 
-            const hasBonus = redeemablePoints > 0 && bonusQuote.destination.amount > baseQuote.destination.amount;
-
-            let msg = `
+            const msg = `
 📊 <b>Review Quote</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💵 <b>You Pay:</b> ${formatAmount(bonusQuote.source.amount)} ${ctx.wizard.state.data.currency}
-💰 <b>You Get:</b> ${formatAmount(bonusQuote.destination.amount)} ${ctx.wizard.state.data.symbol}
-`;
+💵 <b>You Pay:</b> ${formatAmount(quote.source.amount)} ${ctx.wizard.state.data.currency}
+💰 <b>You Get:</b> ${formatAmount(quote.destination.amount)} ${ctx.wizard.state.data.symbol}
 
-            if (hasBonus) {
-                msg += `
-🎁 <b>You have earned ${pointsDiscountPct}% bonus on your transaction</b>
-⭐ <b>Points Used:</b> ${redeemablePoints}
-💡 <i>Do more transactions to unlock higher bonuses</i>
-`;
-            } else if (userPoints > 0) {
-                msg += `
-⭐ <b>Your Points:</b> ${userPoints.toLocaleString()}
-💡 <i>Do more transactions to unlock higher bonuses</i>
-`;
-            }
-
-            msg += `
-📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(bonusQuote.rate)} ${ctx.wizard.state.data.currency}
-${bonusQuote.fee ? `💳 <b>Fee:</b> ${formatAmount(bonusQuote.fee.total)} ${bonusQuote.fee.currency}` : ''}
+📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${formatAmount(quote.rate)} ${ctx.wizard.state.data.currency}
+${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.currency}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -419,20 +384,17 @@ Is this correct?
                 walletAddress: walletAddress,
                 holderName: ctx.from.first_name || 'Trader',
                 currency: ctx.wizard.state.data.currency,
-                developerFee: ctx.wizard.state.platformFee,
-                pointDiscountPct: ctx.wizard.state.pointsDiscountPct
+                developerFee: ctx.wizard.state.platformFee
             });
 
-            // Save transaction to local database and atomically redeem points
-            storageService.addTransactionAndRedeemPoints({
+            // Save transaction to local database
+            storageService.addTransaction({
                 userId: ctx.from.id,
                 reference: result.reference,
                 type: 'ONRAMP',
                 asset: ctx.wizard.state.data.asset.id,
                 amount: ctx.wizard.state.data.amount,
-                currency: ctx.wizard.state.data.currency,
-                pointsRedeemed: ctx.wizard.state.pointsRedeemed || 0,
-                pointsDiscountPct: ctx.wizard.state.pointsDiscountPct || 0
+                currency: ctx.wizard.state.data.currency
             });
 
             const msg = `

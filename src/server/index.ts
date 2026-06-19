@@ -239,10 +239,7 @@ app.get('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
 });
 
 const ALLOWED_SETTINGS_KEYS = [
-    'platform_fee',
-    'points_per_tx',
-    'points_value_pct',
-    'max_points_per_tx'
+    'platform_fee'
 ];
 
 app.post('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
@@ -265,31 +262,6 @@ app.post('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
         return res.json({ success: true });
     } catch (e: any) {
         return res.status(500).json({ error: e.message });
-    }
-});
-
-app.get('/api/admin/points', adminAuth, (req: Request, res: Response) => {
-    try {
-        const stats = storageService.getPointStats();
-        const settings = storageService.getPointSettings();
-        res.json({ ...stats, settings });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.get('/api/admin/users/:id/points', adminAuth, (req: Request, res: Response) => {
-    try {
-        const userId = parseInt(req.params.id as string);
-        const user = storageService.getUserDetailStats(userId);
-        res.json({
-            userId,
-            currentBalance: user.user?.points || 0,
-            earned: user.stats.pointsEarned,
-            redeemed: user.stats.pointsRedeemed
-        });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
     }
 });
 
@@ -325,7 +297,7 @@ app.post('/api/admin/withdrawals/:id/approve', adminAuth, async (req: Request, r
             const msg = `
 ✅ <b>Withdrawal Approved!</b>
 
-Your withdrawal request of <b>₦${withdrawal.amount.toLocaleString()}</b> has been cleared and sent to your wallet:
+Your withdrawal request of <b>$${withdrawal.amount.toLocaleString()}</b> has been cleared and sent to your wallet:
 <code>${withdrawal.wallet_address}</code> (${withdrawal.chain})
             `;
             await bot.telegram.sendMessage(withdrawal.user_id, msg, { parse_mode: 'HTML' });
@@ -354,7 +326,7 @@ app.post('/api/admin/withdrawals/:id/reject', adminAuth, async (req: Request, re
             const msg = `
 ❌ <b>Withdrawal Rejected</b>
 
-Your withdrawal request of <b>₦${withdrawal.amount.toLocaleString()}</b> was rejected by the admin.
+Your withdrawal request of <b>$${withdrawal.amount.toLocaleString()}</b> was rejected by the admin.
 The amount has been refunded back to your referral balance.
             `;
             await bot.telegram.sendMessage(withdrawal.user_id, msg, { parse_mode: 'HTML' });
