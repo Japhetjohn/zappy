@@ -232,15 +232,15 @@ bot.on('text', async (ctx, next) => {
         return;
     }
 
-    if ((ctx.session as any).awaiting_onramp_hash) {
+    if ((ctx.session as any).awaiting_offramp_hash) {
         const hash = ctx.message.text.trim();
-        const reference = (ctx.session as any).pending_onramp_ref;
+        const reference = (ctx.session as any).pending_offramp_ref;
         
-        delete (ctx.session as any).awaiting_onramp_hash;
-        delete (ctx.session as any).pending_onramp_ref;
+        delete (ctx.session as any).awaiting_offramp_hash;
+        delete (ctx.session as any).pending_offramp_ref;
 
-        if (hash.length < 3) {
-            return ctx.reply('❌ This reference looks too short. Please try again from the "I Have Paid" button.');
+        if (hash.length < 5) {
+            return ctx.reply('❌ This hash looks too short. Please try again from the "I Have Paid" button.');
         }
 
         try {
@@ -250,17 +250,17 @@ bot.on('text', async (ctx, next) => {
             
             // Artificial delay for better UX
             setTimeout(async () => {
-                await safeEdit(ctx, `
+                return safeEdit(ctx, `
 ✅ <b>Payment Confirmed!</b>
 
 We've notified the system of your transfer (Ref: <code>${hash}</code>).
 
-The system is now verifying your payment. Your crypto will be sent automatically once confirmed. 🚀
+The system is now verifying your payment. Your funds will be sent automatically once confirmed. 🚀
 `, Markup.inlineKeyboard([[Markup.button.callback('🏠 Main Menu', 'action_menu')]]));
             }, 1500);
 
         } catch (e: any) {
-            await ctx.reply(`❌ Confirmation Failed: ${e.message}`);
+            return ctx.reply(`❌ Confirmation Failed: ${e.message}`);
         }
         return;
     }
@@ -353,23 +353,21 @@ bot.action(/^action_confirm_payment:?(.+)?$/, async (ctx) => {
         return ctx.reply('⚠️ Error: Transaction not found in history.');
     }
 
-    if (tx.type === 'ONRAMP') {
-        // Buy Crypto Flow - Ask for Hash
-        (ctx.session as any).awaiting_onramp_hash = true;
-        (ctx.session as any).pending_onramp_ref = reference;
+    if (tx.type === 'OFFRAMP') {
+        // Sell Crypto Flow - Ask for TX Hash
+        (ctx.session as any).awaiting_offramp_hash = true;
+        (ctx.session as any).pending_offramp_ref = reference;
 
         return ctx.replyWithHTML(`
 ✨ <b>Payment Acknowledged</b>
 
-Great! To finalize your purchase, please provide your <b>Transaction ID / Reference</b> (the one from your bank app).
+Great! To finalize your sale, please provide your <b>Transaction Hash (TXID)</b> for the crypto transfer.
 
 Paste it below now: 👇
 `);
     } else {
-        // Sell Crypto Flow - Immediate Confirmation
-        try {
-            await switchService.confirmDeposit(reference);
-            return ctx.replyWithHTML(`
+        // Buy Crypto Flow - Simple Acknowledgement
+        return ctx.replyWithHTML(`
 ✨ <b>Payment Acknowledged</b>
 
 Great! Our system is now automatically searching for your payment on the network.
@@ -378,9 +376,6 @@ You will receive a notification here as soon as it is detected and confirmed. Th
 
 You can also check your transaction history at any time using the <b>History</b> button.
 `, Markup.inlineKeyboard([[Markup.button.callback('🏠 Main Menu', 'action_menu')]]));
-        } catch (e: any) {
-            return ctx.replyWithHTML(`❌ <b>Error:</b> ${e.message}`);
-        }
     }
 });
 
