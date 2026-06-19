@@ -399,18 +399,20 @@ app.post('/webhook', async (req: Request, res: Response) => {
         // Notify user via shared service - only for critical updates
         const notifiableStatuses = ['COMPLETED', 'FAILED', 'EXPIRED'];
         if (notifiableStatuses.includes(status)) {
-            let extra: any = { type: transaction.type };
-            if (status === 'COMPLETED' || status === 'VERIFIED') {
-                const txDetail = storageService.getTransactionDetails(reference);
-                if (txDetail) {
-                    extra.destinationAmount = txDetail.destination_amount;
-                    extra.destinationCurrency = txDetail.destination_currency;
-                    extra.rate = txDetail.rate;
-                    extra.walletAddress = txDetail.wallet_address;
-                }
-            } else {
-                extra.walletAddress = transaction.wallet_address;
-            }
+            // Pull destination info directly from the webhook payload (Switch sends this)
+            const destAmount = payload.destination?.amount || payload.destinationAmount || payload.destination_amount;
+            const destCurrency = payload.destination?.currency || payload.destinationCurrency || payload.destination_currency;
+            const rate = payload.rate;
+            // walletAddress: for ONRAMP=crypto wallet, for OFFRAMP=bank account stored at tx creation time
+            const walletAddress = transaction.wallet_address || payload.beneficiary?.account_number || payload.destination?.address;
+
+            let extra: any = {
+                type: transaction.type,
+                walletAddress,
+                destinationAmount: destAmount,
+                destinationCurrency: destCurrency,
+                rate,
+            };
 
             await notificationService.sendUpdate(
                 transaction.user_id,
