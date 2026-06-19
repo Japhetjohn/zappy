@@ -213,6 +213,7 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
         ctx.wizard.state.data.amount = amount;
 
         try {
+            await ctx.replyWithHTML('⏳ <i>Fetching live quote...</i>');
             const settings = storageService.getSettings();
             const platformFeeRaw = settings.platform_fee || config.developerFee.toString();
             const platformFee = parseFloat(platformFeeRaw);
@@ -427,7 +428,7 @@ Choose your receiving bank:
         const b = ctx.wizard.state.data.beneficiary;
         if (!b.holderName && b.bankCode && b.accountNumber) {
             try {
-                await ctx.replyWithHTML('⏳ <i>Verifying account...</i>');
+                await ctx.replyWithHTML('⏳ <i>Verifying bank account...</i>');
                 const result = await switchService.lookupInstitution(ctx.wizard.state.data.country, b.bankCode, b.accountNumber);
 
                 const possibleFields = ['account_name', 'accountName', 'name', 'holder_name', 'beneficiary_name'];

@@ -21,15 +21,14 @@ export const formatAmount = (num: number): string => {
  */
 export const safeEdit = async (ctx: any, text: string, extra?: any) => {
     try {
+        // User requested NEW messages instead of editing
+        await ctx.replyWithHTML(text, extra);
         if (ctx.callbackQuery) {
-            await ctx.editMessageText(text, { parse_mode: 'HTML', ...extra });
-        } else {
-            // If it's a new message, we reply
-            await ctx.replyWithHTML(text, extra);
+            // Snappy feedback even if message is new
+            await ctx.answerCbQuery().catch(() => {});
         }
     } catch (error: any) {
-        if (error.message.includes('message is not modified')) return;
-        console.error('SafeEdit failed:', error.message);
+        console.error('SafeEdit fallback failed:', error.message);
         await ctx.replyWithMarkdown(text, extra).catch(() => { });
     }
 };

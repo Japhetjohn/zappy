@@ -574,15 +574,12 @@ Just join our community group at <a href="https://t.me/usevelcro">@usevelcro</a>
 // 🏁 START/GLOBAL COMMANDS
 // ═══════════════════════════════════════════════════════════
 bot.command('onramp', async (ctx) => {
-    await safeDelete(ctx);
     await ctx.scene.enter('onramp-wizard');
 });
 bot.command('offramp', async (ctx) => {
-    await safeDelete(ctx);
     await ctx.scene.enter('offramp-wizard');
 });
 bot.command('help', async (ctx) => {
-    await safeDelete(ctx);
     const name = ctx.from?.first_name || 'Friend';
     return ctx.replyWithHTML(getWelcomeMsg(name), MAIN_KEYBOARD);
 });

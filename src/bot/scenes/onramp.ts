@@ -207,6 +207,7 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         ctx.wizard.state.data.amount = amount;
 
         try {
+            await ctx.replyWithHTML('⏳ <i>Fetching live quote...</i>');
             const settings = storageService.getSettings();
             const platformFeeRaw = settings.platform_fee || config.developerFee.toString();
             const platformFee = parseFloat(platformFeeRaw);
