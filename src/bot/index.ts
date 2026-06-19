@@ -312,6 +312,54 @@ bot.action('action_withdraw_referrals', async (ctx) => {
     await ctx.scene.enter('withdrawal-wizard');
 });
 
+bot.action('action_share_menu', async (ctx) => {
+    if (!ctx.from) return;
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Opening share options...').catch(() => { });
+    
+    try {
+        const stats = storageService.getUserReferralStats(ctx.from.id);
+        const username = await getBotUsername();
+        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+        const text = 'Join me on usevelcro and get cash rewards on every crypto transaction!';
+
+        const shareMsg = `
+📤 <b>Share your Referral Link</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Choose a platform to share your link:
+`;
+
+        const keyboard = Markup.inlineKeyboard([
+            [
+                Markup.button.url('✈️ Telegram', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`),
+                Markup.button.url('💬 WhatsApp', `https://api.whatsapp.com/send?text=${encodeURIComponent(text + ' ' + link)}`)
+            ],
+            [
+                Markup.button.url('𝕏 (Twitter)', `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`),
+                Markup.button.callback('📋 Copy Link', 'action_copy_link')
+            ],
+            [Markup.button.callback('🏠 Back to Referrals', 'action_referrals')]
+        ]);
+
+        await ctx.replyWithHTML(shareMsg, keyboard);
+    } catch (err: any) {
+        logger.error(`Error in action_share_menu: ${err.message}`);
+        await ctx.reply('❌ Could not open share menu.');
+    }
+});
+
+bot.action('action_copy_link', async (ctx) => {
+    if (!ctx.from) return;
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Link sent below! 👇').catch(() => { });
+    
+    const stats = storageService.getUserReferralStats(ctx.from.id);
+    const username = await getBotUsername();
+    const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+    
+    await ctx.replyWithHTML(`🔗 <b>Your Referral Link (tap to copy):</b>\n\n<code>${link}</code>`);
+});
+
 async function handleReferrals(ctx: any) {
     if (!ctx.from) return;
     try {
@@ -339,7 +387,7 @@ async function handleReferrals(ctx: any) {
 powered by usevelcro.com
 `, Markup.inlineKeyboard([
             [Markup.button.callback('💸 Withdraw Earnings', 'action_withdraw_referrals')],
-            [Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and get cash rewards on every crypto transaction!')}`)],
+            [Markup.button.callback('📤 Share to Platforms', 'action_share_menu')],
             [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
         ]));
     } catch (err: any) {
