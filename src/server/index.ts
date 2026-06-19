@@ -302,6 +302,70 @@ app.get('/api/admin/referrals', adminAuth, (req: Request, res: Response) => {
     }
 });
 
+app.get('/api/admin/withdrawals', adminAuth, (req: Request, res: Response) => {
+    try {
+        const { db } = require('../services/storage');
+        const rows = db.prepare('SELECT w.*, u.username, u.name FROM withdrawals w JOIN users u ON w.user_id = u.id ORDER BY w.created_at DESC').all();
+        res.json(rows);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/withdrawals/:id/approve', adminAuth, async (req: Request, res: Response): Promise<any> => {
+    try {
+        const id = parseInt(req.params.id);
+        const { db } = require('../services/storage');
+        const withdrawal = db.prepare('SELECT * FROM withdrawals WHERE id = ?').get(id) as any;
+        if (!withdrawal || withdrawal.status !== 'PENDING') return res.status(400).json({ error: 'Invalid or already processed' });
+        
+        db.prepare('UPDATE withdrawals SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('APPROVED', id);
+        
+        try {
+            const msg = `
+✅ <b>Withdrawal Approved!</b>
+
+Your withdrawal request of <b>₦${withdrawal.amount.toLocaleString()}</b> has been cleared and sent to your wallet:
+<code>${withdrawal.wallet_address}</code> (${withdrawal.chain})
+            `;
+            await bot.telegram.sendMessage(withdrawal.user_id, msg, { parse_mode: 'HTML' });
+        } catch(e) {}
+        
+        return res.json({ success: true });
+    } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/withdrawals/:id/reject', adminAuth, async (req: Request, res: Response): Promise<any> => {
+    try {
+        const id = parseInt(req.params.id);
+        const { db } = require('../services/storage');
+        const withdrawal = db.prepare('SELECT * FROM withdrawals WHERE id = ?').get(id) as any;
+        if (!withdrawal || withdrawal.status !== 'PENDING') return res.status(400).json({ error: 'Invalid or already processed' });
+        
+        db.transaction(() => {
+            db.prepare('UPDATE withdrawals SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('REJECTED', id);
+            // Refund the user's referral balance
+            db.prepare('UPDATE users SET referral_balance = referral_balance + ? WHERE id = ?').run(withdrawal.amount, withdrawal.user_id);
+        })();
+        
+        try {
+            const msg = `
+❌ <b>Withdrawal Rejected</b>
+
+Your withdrawal request of <b>₦${withdrawal.amount.toLocaleString()}</b> was rejected by the admin.
+The amount has been refunded back to your referral balance.
+            `;
+            await bot.telegram.sendMessage(withdrawal.user_id, msg, { parse_mode: 'HTML' });
+        } catch(e) {}
+        
+        return res.json({ success: true });
+    } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
 // Serve Admin Dashboard Static Files
 import path from 'path';
 const publicPath = path.resolve(process.cwd(), 'public');

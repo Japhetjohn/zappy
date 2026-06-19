@@ -4,6 +4,7 @@ import { config } from '../config';
 import { SessionData, Beneficiary } from '../types';
 import { onrampWizard } from './scenes/onramp';
 import { offrampWizard } from './scenes/offramp';
+import { withdrawalWizard } from './scenes/withdraw';
 import { storageService } from '../services/storage';
 import { switchService } from '../services/switch';
 import { formatAmount, safeEdit, safeDelete } from '../utils/index';
@@ -35,7 +36,7 @@ async function getBotUsername(): Promise<string | null> {
     }
 }
 
-const stage = new Scenes.Stage<BotContext>([onrampWizard, offrampWizard]);
+const stage = new Scenes.Stage<BotContext>([onrampWizard, offrampWizard, withdrawalWizard]);
 bot.use(session());
 
 // 📝 Log All Updates
@@ -51,66 +52,12 @@ bot.use((ctx, next) => {
 // 🏠 START COMMAND ( Global Priority )
 // ═══════════════════════════════════════════════════════════
 bot.command('points', async (ctx) => {
-    if (!ctx.from) return;
-    try {
-        const pointSettings = storageService.getPointSettings();
-        const points = storageService.getUserPoints(ctx.from.id);
-        const pointsUsed = Math.min(points, pointSettings.maxPerTx);
-        const bonusPct = pointsUsed * pointSettings.valuePct;
-
-        await ctx.replyWithHTML(`
-🎁 <b>Your Bonus Points</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⭐ <b>Total Points Acquired:</b> ${points.toLocaleString()}
-
-🎁 <b>Next Transaction Bonus:</b> ${bonusPct}%
-
-💡 <i>You earn 1 point for every completed transaction.</i>
-💡 <i>Do more transactions to unlock higher bonuses</i>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The more you trade, the bigger your bonus! 🚀
-`, MAIN_KEYBOARD);
-    } catch (err: any) {
-        logger.error(`Error in /points command: ${err.message}`);
-        await ctx.reply('❌ Could not fetch your points balance.');
-    }
+    await ctx.reply('⚠️ The points system has been replaced with cash referral rewards! Type /referrals to see your earnings.');
 });
 
 bot.command('referrals', async (ctx) => {
     if (!ctx.from) return;
-    try {
-        const stats = storageService.getUserReferralStats(ctx.from.id);
-        const username = await getBotUsername();
-        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
-
-        await ctx.replyWithHTML(`
-👥 <b>My Referrals</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>Your referral link:</b>
-<code>${link}</code>
-
-👤 <b>Referrals:</b> ${stats.referralCount}
-⭐ <b>Points earned:</b> ${stats.referralPointsEarned}
-
-💡 <i>Share your link and earn 5 points for every friend who joins!</i>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-powered by usevelcro.com
-`, Markup.inlineKeyboard([
-            [Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and earn bonuses on every crypto transaction!')}`)],
-            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
-        ]));
-    } catch (err: any) {
-        logger.error(`Error in /referrals command: ${err.message}`);
-        await ctx.reply('❌ Could not fetch your referral info.');
-    }
+    return handleReferrals(ctx);
 });
 
 bot.command('start', async (ctx) => {
@@ -360,39 +307,21 @@ bot.action('action_history', async (ctx) => {
 });
 
 bot.action('action_points', async (ctx) => {
-    if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching points...').catch(() => { });
-    if (!ctx.from) return;
-    try {
-        const pointSettings = storageService.getPointSettings();
-        const points = storageService.getUserPoints(ctx.from.id);
-        const pointsUsedAction = Math.min(points, pointSettings.maxPerTx);
-        const bonusPctAction = pointsUsedAction * pointSettings.valuePct;
-        await ctx.replyWithHTML(`
-🎁 <b>Your Bonus Points</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⭐ <b>Total Points Acquired:</b> ${points.toLocaleString()}
-
-🎁 <b>Next Transaction Bonus:</b> ${bonusPctAction}%
-
-💡 <i>You earn 1 point for every completed transaction.</i>
-💡 <i>Do more transactions to unlock higher bonuses</i>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The more you trade, the bigger your bonus! 🚀
-`, Markup.inlineKeyboard([
-            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
-        ]));
-    } catch (err: any) {
-        logger.error(`Error in action_points: ${err.message}`);
-        await ctx.reply('❌ Could not fetch your points balance.');
-    }
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Points feature deprecated').catch(() => { });
+    await ctx.reply('⚠️ The points system has been replaced with cash referral rewards! Type /referrals to see your earnings.');
 });
 
 bot.action('action_referrals', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching referrals...').catch(() => { });
+    await handleReferrals(ctx);
+});
+
+bot.action('action_withdraw_referrals', async (ctx) => {
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
+    await ctx.scene.enter('withdrawal-wizard');
+});
+
+async function handleReferrals(ctx: any) {
     if (!ctx.from) return;
     try {
         const stats = storageService.getUserReferralStats(ctx.from.id);
@@ -407,23 +336,26 @@ bot.action('action_referrals', async (ctx) => {
 🔗 <b>Your referral link:</b>
 <code>${link}</code>
 
-👤 <b>Referrals:</b> ${stats.referralCount}
-⭐ <b>Points earned:</b> ${stats.referralPointsEarned}
+👤 <b>Total Referred Users:</b> ${stats.referralCount}
 
-💡 <i>Share your link and earn 5 points for every friend who joins!</i>
+💰 <b>Current Balance:</b> $${stats.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+💵 <b>Total Lifetime Earnings:</b> $${stats.totalEarned.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+
+💡 <i>You earn 0.1% on all transactions completed by your referrals! Share your link to start earning.</i>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 powered by usevelcro.com
 `, Markup.inlineKeyboard([
-            [Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and earn bonuses on every crypto transaction!')}`)],
+            [Markup.button.callback('💸 Withdraw Earnings', 'action_withdraw_referrals')],
+            [Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and get cash rewards on every crypto transaction!')}`)],
             [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
         ]));
     } catch (err: any) {
         logger.error(`Error in action_referrals: ${err.message}`);
         await ctx.reply('❌ Could not fetch your referral info.');
     }
-});
+}
 
 // Dynamic status checker
 bot.action(/^status_(.+)$/, async (ctx) => {

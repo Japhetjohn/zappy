@@ -93,22 +93,6 @@ Ref: <code>${reference}</code>
                         const currencySymbol = destCurrency === 'NGN' ? '₦' : '$';
                         const txType = extraData?.type || '';
 
-                        let pointsMsg = '';
-                        try {
-                            const { storageService } = require('../services/storage');
-                            const txDetail = storageService.getTransactionDetails(reference);
-                            if (txDetail) {
-                                if (txDetail.points_redeemed > 0) {
-                                    pointsMsg += `\n🎁 You used <b>${txDetail.points_redeemed} points</b> for a bonus on this transaction.`;
-                                }
-                                if (txDetail.points_earned > 0) {
-                                    pointsMsg += `\n⭐ You earned <b>${txDetail.points_earned} point${txDetail.points_earned === 1 ? '' : 's'}</b>! Total balance: <b>${txDetail.user_points || 0}</b>.`;
-                                }
-                            }
-                        } catch (e) {
-                            // Ignore points lookup errors
-                        }
-
                         if (txType === 'OFFRAMP') {
                             // Sold crypto → Got cash
                             notifyMsg = `
@@ -117,7 +101,6 @@ Ref: <code>${reference}</code>
 <b>${amount} ${assetName}</b> has been sold successfully.
 ${rate ? `📊 Rate: ${currencySymbol}${Number(rate).toLocaleString()}` : ''}
 ${destAmount ? `\n💰 <b>${currencySymbol}${Number(destAmount).toLocaleString()}</b> has been sent to your bank account.` : ''}
-${pointsMsg}
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
@@ -133,7 +116,6 @@ Type <b>Menu</b> to continue 🚀
 
 Your purchase of <b>${amount} ${assetName}</b> is complete!
 ${rate ? `📊 Rate: ₦${Number(rate).toLocaleString()}` : ''}
-${pointsMsg}
 
 Crypto has been sent to your wallet. 🎉
 
@@ -231,6 +213,29 @@ ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
             logger.info(`📨 Notification sent to ${userId} for ${reference} (${status})`);
         } catch (error: any) {
             logger.error(`Failed to send notification to ${userId}: ${error.message}`);
+        }
+    }
+
+    async sendReferralCreditNotification(userId: number, amount: number) {
+        try {
+            const notifyMsg = `
+🎁 <b>Referral Bonus Received!</b>
+
+Your referral just completed a transaction, and you've earned a portion of the volume!
+
+💰 <b>Amount Credited:</b> $${Number(amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+
+Keep sharing your referral link to earn more! 🚀
+            `;
+            const extra: any = {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [[{ text: '👥 View Referrals', callback_data: 'action_referrals' }]]
+                }
+            };
+            await bot.telegram.sendMessage(userId, notifyMsg, extra);
+        } catch (e: any) {
+            logger.error(`Failed to send referral notification to ${userId}: ${e.message}`);
         }
     }
 }

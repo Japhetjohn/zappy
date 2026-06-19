@@ -6,7 +6,6 @@ export const MAIN_KEYBOARD = Markup.inlineKeyboard([
         Markup.button.callback('💸 Sell Crypto', 'action_offramp')
     ],
     [
-        Markup.button.callback('🎁 My Points', 'action_points'),
         Markup.button.callback('👥 My Referrals', 'action_referrals')
     ],
     [

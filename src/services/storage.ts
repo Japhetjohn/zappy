@@ -63,11 +63,28 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_ref ON transactions(reference);
   CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
+
+  CREATE TABLE IF NOT EXISTS withdrawals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    amount REAL,
+    wallet_address TEXT,
+    chain TEXT,
+    status TEXT DEFAULT 'PENDING',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Safe migrations for existing databases
+
+
 try {
-  db.prepare('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0').run();
+  db.prepare('ALTER TABLE users ADD COLUMN referral_balance REAL DEFAULT 0').run();
+} catch (e) { }
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN total_referral_earnings REAL DEFAULT 0').run();
 } catch (e) { }
 
 try {
@@ -248,7 +265,7 @@ export const storageService = {
       data.type,
       data.asset,
       data.amount,
-      data.currency || 'NGN',
+      data.currency || 'USD',
       data.status || 'PENDING',
       data.pointsRedeemed || 0,
       data.pointsDiscountPct || 0
@@ -282,7 +299,7 @@ export const storageService = {
         data.type,
         data.asset,
         data.amount,
-        data.currency || 'NGN',
+        data.currency || 'USD',
         data.status || 'PENDING',
         data.pointsRedeemed || 0,
         data.pointsDiscountPct || 0
@@ -331,10 +348,29 @@ export const storageService = {
         const pointsPerTx = storageService.getPointSettings().perTx;
 
         db.transaction(() => {
-          db.prepare('UPDATE users SET total_volume = total_volume + ?, points = points + ? WHERE id = ?')
-            .run(volumeUSD, pointsPerTx, tx.user_id);
+          db.prepare('UPDATE users SET total_volume = total_volume + ? WHERE id = ?')
+            .run(volumeUSD, tx.user_id);
+            
           db.prepare('UPDATE transactions SET points_earned = ? WHERE reference = ?')
-            .run(pointsPerTx, reference);
+            .run(1, reference); // mark as processed
+            
+          // Add 0.1% referral reward logic (IN USD!)
+          const user = db.prepare('SELECT referred_by FROM users WHERE id = ?').get(tx.user_id) as any;
+          if (user && user.referred_by) {
+            const rewardAmountUSD = volumeUSD * 0.001; // 0.1% of USD volume
+            if (rewardAmountUSD > 0) {
+                db.prepare('UPDATE users SET referral_balance = referral_balance + ?, total_referral_earnings = total_referral_earnings + ? WHERE id = ?')
+                  .run(rewardAmountUSD, rewardAmountUSD, user.referred_by);
+                  
+                // Notify the referrer asynchronously
+                setTimeout(() => {
+                    try {
+                        const { notificationService } = require('./notification');
+                        notificationService.sendReferralCreditNotification(user.referred_by, rewardAmountUSD);
+                    } catch (e) {}
+                }, 100);
+            }
+          }
         })();
       }
     }
@@ -394,12 +430,23 @@ export const storageService = {
   },
 
   getUserReferralStats: (userId: number) => {
-    const user = db.prepare('SELECT referral_code, referral_count FROM users WHERE id = ?').get(userId) as any;
+    const user = db.prepare('SELECT referral_code, referral_count, referral_balance, total_referral_earnings FROM users WHERE id = ?').get(userId) as any;
     return {
       code: user?.referral_code || null,
       referralCount: user?.referral_count || 0,
-      referralPointsEarned: (user?.referral_count || 0) * 5,
+      balance: user?.referral_balance || 0,
+      totalEarned: user?.total_referral_earnings || 0,
     };
+  },
+
+  requestWithdrawal: (userId: number, amount: number, address: string, chain: string) => {
+    return db.transaction(() => {
+       const user = db.prepare('SELECT referral_balance FROM users WHERE id = ?').get(userId) as any;
+       if (!user || user.referral_balance < amount) throw new Error('Insufficient referral balance');
+       db.prepare('UPDATE users SET referral_balance = referral_balance - ? WHERE id = ?').run(amount, userId);
+       const result = db.prepare('INSERT INTO withdrawals (user_id, amount, wallet_address, chain, status) VALUES (?, ?, ?, ?, ?)').run(userId, amount, address, chain, 'PENDING');
+       return result.lastInsertRowid;
+    })();
   },
 
   recordReferral: (referredUserId: number, referrerUserId: number): boolean => {
