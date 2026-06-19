@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { Beneficiary, PointSettings } from '../types';
+import { Beneficiary } from '../types';
 
 console.log('Initializing Storage Service...');
 const dbPath = path.resolve(__dirname, '../../bitnova.db');
@@ -27,7 +27,6 @@ db.exec(`
     referral_count INTEGER DEFAULT 0,
     total_volume REAL DEFAULT 0,
     tx_count INTEGER DEFAULT 0,
-    points INTEGER DEFAULT 0,
     last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -54,9 +53,6 @@ db.exec(`
     currency TEXT DEFAULT 'USD',
     status TEXT,
     hash TEXT,
-    points_earned INTEGER DEFAULT 0,
-    points_redeemed INTEGER DEFAULT 0,
-    points_discount_pct REAL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
@@ -107,18 +103,6 @@ try {
   db.prepare('ALTER TABLE transactions ADD COLUMN hash TEXT').run();
 } catch (e) { }
 
-try {
-  db.prepare('ALTER TABLE transactions ADD COLUMN points_earned INTEGER DEFAULT 0').run();
-} catch (e) { }
-
-try {
-  db.prepare('ALTER TABLE transactions ADD COLUMN points_redeemed INTEGER DEFAULT 0').run();
-} catch (e) { }
-
-try {
-  db.prepare('ALTER TABLE transactions ADD COLUMN points_discount_pct REAL DEFAULT 0').run();
-} catch (e) { }
-
 // Settings Table
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
@@ -127,12 +111,9 @@ db.exec(`
   )
 `);
 
-// Initialize default fee and points settings if not exists
+// Initialize default fee settings if not exists
 const defaultSettings = [
   { key: 'platform_fee', value: '1' },
-  { key: 'points_per_tx', value: '1' },
-  { key: 'points_value_pct', value: '0.1' },
-  { key: 'max_points_per_tx', value: '5' },
 ];
 
 for (const setting of defaultSettings) {
@@ -252,12 +233,10 @@ export const storageService = {
     amount: number;
     currency?: string;
     status?: string;
-    pointsRedeemed?: number;
-    pointsDiscountPct?: number;
   }) => {
     const stmt = db.prepare(`
-      INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status, points_redeemed, points_discount_pct)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       data.userId,
@@ -266,9 +245,7 @@ export const storageService = {
       data.asset,
       data.amount,
       data.currency || 'USD',
-      data.status || 'PENDING',
-      data.pointsRedeemed || 0,
-      data.pointsDiscountPct || 0
+      data.status || 'PENDING'
     );
 
     // Increment user's tx count (on a transaction basis)
@@ -277,49 +254,7 @@ export const storageService = {
     return result;
   },
 
-  addTransactionAndRedeemPoints: (data: {
-    userId: number;
-    reference: string;
-    type: 'ONRAMP' | 'OFFRAMP';
-    asset: string;
-    amount: number;
-    currency?: string;
-    status?: string;
-    pointsRedeemed?: number;
-    pointsDiscountPct?: number;
-  }) => {
-    return db.transaction(() => {
-      const stmt = db.prepare(`
-        INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status, points_redeemed, points_discount_pct)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      const result = stmt.run(
-        data.userId,
-        data.reference,
-        data.type,
-        data.asset,
-        data.amount,
-        data.currency || 'USD',
-        data.status || 'PENDING',
-        data.pointsRedeemed || 0,
-        data.pointsDiscountPct || 0
-      );
 
-      // Increment user's tx count
-      db.prepare('UPDATE users SET tx_count = tx_count + 1, last_seen = CURRENT_TIMESTAMP WHERE id = ?').run(data.userId);
-
-      // Atomically redeem points
-      if (data.pointsRedeemed && data.pointsRedeemed > 0) {
-        const redeemResult = db.prepare('UPDATE users SET points = points - ? WHERE id = ? AND points >= ?')
-          .run(data.pointsRedeemed, data.userId, data.pointsRedeemed);
-        if (redeemResult.changes === 0) {
-          throw new Error(`Insufficient points balance to redeem ${data.pointsRedeemed} points`);
-        }
-      }
-
-      return result;
-    })();
-  },
 
   updateTransactionStatus: (reference: string, status: string, hash?: string) => {
     let sql = 'UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP';
@@ -336,23 +271,18 @@ export const storageService = {
     const stmt = db.prepare(sql);
     const result = stmt.run(...params);
 
-    // If completed, update user total volume and award points (idempotent)
+    // If completed, update user total volume (idempotent)
     if (status === 'COMPLETED') {
-      const tx = db.prepare('SELECT user_id, amount, currency, points_earned, type FROM transactions WHERE reference = ?').get(reference) as any;
-      if (tx && tx.points_earned === 0) {
+      const tx = db.prepare('SELECT user_id, amount, currency, type FROM transactions WHERE reference = ?').get(reference) as any;
+      if (tx) {
         let volumeUSD = tx.amount;
         if (tx.currency === 'NGN') {
           volumeUSD = tx.amount / 1600; // Standardize user volume in USD (approximate rate)
         }
 
-        const pointsPerTx = storageService.getPointSettings().perTx;
-
         db.transaction(() => {
           db.prepare('UPDATE users SET total_volume = total_volume + ? WHERE id = ?')
             .run(volumeUSD, tx.user_id);
-            
-          db.prepare('UPDATE transactions SET points_earned = ? WHERE reference = ?')
-            .run(1, reference); // mark as processed
             
           // Add 0.1% referral reward logic (IN USD!)
           const user = db.prepare('SELECT referred_by FROM users WHERE id = ?').get(tx.user_id) as any;
@@ -411,19 +341,11 @@ export const storageService = {
     }
   },
 
-  getUserPoints: (userId: number): number => {
-    const row = db.prepare('SELECT points FROM users WHERE id = ?').get(userId) as any;
-    return row ? row.points || 0 : 0;
-  },
 
-  addPoints: (userId: number, amount: number) => {
-    db.prepare('UPDATE users SET points = points + ? WHERE id = ?').run(amount, userId);
-  },
 
-  redeemPoints: (userId: number, amount: number): boolean => {
-    const result = db.prepare('UPDATE users SET points = points - ? WHERE id = ? AND points >= ?').run(amount, userId, amount);
-    return result.changes > 0;
-  },
+
+
+
 
   getUserByReferralCode: (code: string) => {
     return db.prepare('SELECT * FROM users WHERE referral_code = ?').get(code) as any;
@@ -457,50 +379,21 @@ export const storageService = {
 
     return db.transaction(() => {
       db.prepare('UPDATE users SET referred_by = ? WHERE id = ?').run(referrerUserId, referredUserId);
-      const result = db.prepare('UPDATE users SET referral_count = referral_count + 1, points = points + 5 WHERE id = ?').run(referrerUserId);
+      const result = db.prepare('UPDATE users SET referral_count = referral_count + 1 WHERE id = ?').run(referrerUserId);
       return result.changes > 0;
     })();
   },
 
   getReferralStats: () => {
     const totalReferrals = (db.prepare('SELECT COUNT(*) as count FROM users WHERE referred_by IS NOT NULL').get() as any).count || 0;
-    const totalReferralPoints = totalReferrals * 5;
-    return { totalReferrals, totalReferralPoints };
+    return { totalReferrals };
   },
 
-  getPointSettings: (): PointSettings => {
-    const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('points_per_tx', 'points_value_pct', 'max_points_per_tx')").all() as any[];
-    const settings: Record<string, string> = {};
-    rows.forEach(r => settings[r.key] = r.value);
 
-    return {
-      perTx: parseFloat(settings.points_per_tx) || 1,
-      valuePct: parseFloat(settings.points_value_pct) || 0.1,
-      maxPerTx: parseFloat(settings.max_points_per_tx) || 5,
-    };
-  },
 
-  updatePointSettings: (settings: PointSettings) => {
-    db.transaction(() => {
-      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run('points_per_tx', settings.perTx.toString());
-      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run('points_value_pct', settings.valuePct.toString());
-      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run('max_points_per_tx', settings.maxPerTx.toString());
-    })();
-  },
 
-  getPointStats: () => {
-    const totalAwarded = (db.prepare('SELECT SUM(points_earned) as sum FROM transactions').get() as any).sum || 0;
-    const totalRedeemed = (db.prepare('SELECT SUM(points_redeemed) as sum FROM transactions').get() as any).sum || 0;
-    const usersWithPoints = (db.prepare('SELECT COUNT(*) as count FROM users WHERE points > 0').get() as any).count || 0;
-    const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as any).count || 0;
 
-    return {
-      totalAwarded,
-      totalRedeemed,
-      usersWithPoints,
-      averagePoints: totalUsers > 0 ? (totalAwarded - totalRedeemed) / totalUsers : 0,
-    };
-  },
+
 
   // 📊 PLATFORM ANALYTICS HANDLER
   getStats: (rate: number = 1600) => {
@@ -523,8 +416,6 @@ export const storageService = {
     const earnedUSD = (combinedVolumeUSD * feePercent) / 100;
     const earnedNGN = (combinedVolumeNGN * feePercent) / 100;
 
-    const pointStats = storageService.getPointStats();
-
     return {
       totalUsers,
       allTransactions,
@@ -536,7 +427,6 @@ export const storageService = {
       totalEarnedNGN: earnedNGN,
       platformFee: feePercent,
       currentRate: rate,
-      points: pointStats,
     };
   },
 
@@ -569,8 +459,7 @@ export const storageService = {
         u.full_name,
         u.created_at,
         u.last_seen,
-        u.tx_count,
-        u.points
+        u.tx_count
       FROM users u
       ORDER BY u.tx_count DESC, u.id ASC
     `).all() as any[];
@@ -597,9 +486,7 @@ export const storageService = {
       SELECT 
         COUNT(*) as total_tx,
         SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as success_tx,
-        SUM(CASE WHEN status IN ('FAILED', 'EXPIRED') THEN 1 ELSE 0 END) as failed_tx,
-        SUM(points_earned) as points_earned,
-        SUM(points_redeemed) as points_redeemed
+        SUM(CASE WHEN status IN ('FAILED', 'EXPIRED') THEN 1 ELSE 0 END) as failed_tx
       FROM transactions 
       WHERE user_id = ?
     `).get(userId) as any;
@@ -621,9 +508,7 @@ export const storageService = {
         success: statsResult.success_tx || 0,
         failed: statsResult.failed_tx || 0,
         volume: volUSD + (volNGN / rate),
-        volume_ngn: volNGN + (volUSD * rate),
-        pointsEarned: statsResult.points_earned || 0,
-        pointsRedeemed: statsResult.points_redeemed || 0,
+        volume_ngn: volNGN + (volUSD * rate)
       }
     };
   }
@@ -633,8 +518,7 @@ export const storageService = {
     return db.prepare(`
       SELECT 
         t.id, t.user_id, t.reference, t.type, t.asset, t.amount, t.currency, t.status, t.hash, t.created_at, t.updated_at,
-        t.points_earned, t.points_redeemed, t.points_discount_pct,
-        u.username, u.full_name, u.id as user_db_id, u.points as user_points
+        u.username, u.full_name, u.id as user_db_id
       FROM transactions t
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.reference = ?
