@@ -248,7 +248,7 @@ export const storageService = {
       data.type,
       data.asset,
       data.amount,
-      data.currency || 'USD',
+      data.currency || 'NGN',
       data.status || 'PENDING',
       data.pointsRedeemed || 0,
       data.pointsDiscountPct || 0
@@ -282,7 +282,7 @@ export const storageService = {
         data.type,
         data.asset,
         data.amount,
-        data.currency || 'USD',
+        data.currency || 'NGN',
         data.status || 'PENDING',
         data.pointsRedeemed || 0,
         data.pointsDiscountPct || 0

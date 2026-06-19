@@ -127,9 +127,10 @@ Buying: <b>${ctx.wizard.state.data.symbol}</b> (${ctx.wizard.state.data.asset.bl
 
 Choose your local currency:
 `;
-            const currencyButtons = coverage.map((c: any) => {
+            const filteredCoverage = coverage.filter((c: any) => c.country === 'NG');
+            const currencyButtons = filteredCoverage.map((c: any) => {
                 const currency = Array.isArray(c.currency) ? c.currency[0] : c.currency;
-                const flag = c.country === 'NG' ? '🇳🇬' : '🌍';
+                const flag = '🇳🇬'; // Only NG is supported now
                 return Markup.button.callback(`${flag} ${currency} (${c.country})`, `country:${c.country}:${currency}`);
             });
 

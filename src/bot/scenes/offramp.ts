@@ -127,11 +127,9 @@ Selling: <b>${ctx.wizard.state.data.symbol}</b> (${ctx.wizard.state.data.asset.b
 
 Choose your local currency:
 `;
-            const allowedCountries = ['NG', 'GH', 'KE'];
+            const allowedCountries = ['NG'];
             const flagMap: Record<string, string> = {
-                'NG': '🇳🇬',
-                'GH': '🇬🇭',
-                'KE': '🇰🇪'
+                'NG': '🇳🇬'
             };
 
             const filteredCoverage = coverage.filter((c: any) => allowedCountries.includes(c.country));
@@ -583,7 +581,7 @@ Choose your receiving bank:
                 type: 'OFFRAMP',
                 asset: ctx.wizard.state.data.asset.id,
                 amount: ctx.wizard.state.data.amount,
-                currency: 'USD',
+                currency: ctx.wizard.state.data.currency,
                 pointsRedeemed: ctx.wizard.state.pointsRedeemed || 0,
                 pointsDiscountPct: ctx.wizard.state.pointsDiscountPct || 0
             });
