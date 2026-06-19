@@ -426,7 +426,7 @@ You will be notified  once the funds are received.
 `;
 
             const buttons = [
-                [Markup.button.callback('✅ I Have Paid', 'action_confirm_payment')],
+                [Markup.button.callback('✅ I Have Paid', `action_confirm_payment:${result.reference}`)],
                 [Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro')]
             ];
 

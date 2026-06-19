@@ -214,7 +214,7 @@ Please enter the <b>Solana Wallet Address</b> where you want to receive your USD
     }
 });
 
-// Add handler for withdrawal address
+// Global text handler for various prompts
 bot.on('text', async (ctx, next) => {
     if ((ctx.session as any).awaiting_withdraw_address) {
         const address = ctx.message.text.trim();
@@ -228,6 +228,39 @@ bot.on('text', async (ctx, next) => {
             await ctx.replyWithHTML(`✅ <b>Withdrawal Successful!</b>\n\nReference: <code>${result.reference}</code>\n\nFunds will arrive shortly.`);
         } catch (e: any) {
             await ctx.reply(`❌ Withdrawal Failed: ${e.message}`);
+        }
+        return;
+    }
+
+    if ((ctx.session as any).awaiting_onramp_hash) {
+        const hash = ctx.message.text.trim();
+        const reference = (ctx.session as any).pending_onramp_ref;
+        
+        delete (ctx.session as any).awaiting_onramp_hash;
+        delete (ctx.session as any).pending_onramp_ref;
+
+        if (hash.length < 3) {
+            return ctx.reply('❌ This reference looks too short. Please try again from the "I Have Paid" button.');
+        }
+
+        try {
+            const statusMsg = await ctx.replyWithHTML('⏳ <b>Processing your payment...</b>');
+            
+            await switchService.confirmDeposit(reference, hash);
+            
+            // Artificial delay for better UX
+            setTimeout(async () => {
+                await safeEdit(ctx, `
+✅ <b>Payment Confirmed!</b>
+
+We've notified the system of your transfer (Ref: <code>${hash}</code>).
+
+The system is now verifying your payment. Your crypto will be sent automatically once confirmed. 🚀
+`, Markup.inlineKeyboard([[Markup.button.callback('🏠 Main Menu', 'action_menu')]]));
+            }, 1500);
+
+        } catch (e: any) {
+            await ctx.reply(`❌ Confirmation Failed: ${e.message}`);
         }
         return;
     }
@@ -289,27 +322,54 @@ bot.action('action_beneficiaries', async (ctx) => {
 
 bot.action('action_rates', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching rates...').catch(() => { });
-    await handleRates(ctx);
+    return handleRates(ctx);
 });
 
 bot.action('action_help', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
-    await handleHelp(ctx);
+    return handleHelp(ctx);
 });
 
 bot.action('action_history', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching history...').catch(() => { });
-    await handleHistory(ctx);
+    return handleHistory(ctx);
 });
 
 bot.action('action_referrals', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching referrals...').catch(() => { });
-    await handleReferrals(ctx);
+    return handleReferrals(ctx);
 });
 
-bot.action('action_confirm_payment', async (ctx) => {
-    if (ctx.callbackQuery) await ctx.answerCbQuery('Payment noted! ✅').catch(() => { });
-    await ctx.replyWithHTML(`
+bot.action(/^action_confirm_payment:?(.+)?$/, async (ctx) => {
+    const reference = ctx.match[1];
+    if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
+
+    if (!reference) {
+        return ctx.reply('⚠️ Error: Transaction reference missing. Please try again or contact support.');
+    }
+
+    const tx = storageService.getTransaction(reference);
+    if (!tx) {
+        return ctx.reply('⚠️ Error: Transaction not found in history.');
+    }
+
+    if (tx.type === 'ONRAMP') {
+        // Buy Crypto Flow - Ask for Hash
+        (ctx.session as any).awaiting_onramp_hash = true;
+        (ctx.session as any).pending_onramp_ref = reference;
+
+        return ctx.replyWithHTML(`
+✨ <b>Payment Acknowledged</b>
+
+Great! To finalize your purchase, please provide your <b>Transaction ID / Reference</b> (the one from your bank app).
+
+Paste it below now: 👇
+`);
+    } else {
+        // Sell Crypto Flow - Immediate Confirmation
+        try {
+            await switchService.confirmDeposit(reference);
+            return ctx.replyWithHTML(`
 ✨ <b>Payment Acknowledged</b>
 
 Great! Our system is now automatically searching for your payment on the network.
@@ -318,6 +378,10 @@ You will receive a notification here as soon as it is detected and confirmed. Th
 
 You can also check your transaction history at any time using the <b>History</b> button.
 `, Markup.inlineKeyboard([[Markup.button.callback('🏠 Main Menu', 'action_menu')]]));
+        } catch (e: any) {
+            return ctx.replyWithHTML(`❌ <b>Error:</b> ${e.message}`);
+        }
+    }
 });
 
 bot.action('action_withdraw_referrals', async (ctx) => {
