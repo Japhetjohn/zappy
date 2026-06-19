@@ -317,7 +317,7 @@ Great! Our system is now automatically searching for your payment on the network
 You will receive a notification here as soon as it is detected and confirmed. This usually takes 1-5 minutes.
 
 You can also check your transaction history at any time using the <b>History</b> button.
-`);
+`, Markup.inlineKeyboard([[Markup.button.callback('🏠 Main Menu', 'action_menu')]]));
 });
 
 bot.action('action_withdraw_referrals', async (ctx) => {

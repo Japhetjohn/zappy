@@ -107,8 +107,6 @@ ${extraData?.walletAddress ? `(Account: <code>${extraData.walletAddress}</code>)
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
-Type <b>Menu</b> to continue 🚀
-
 <i>powered by usevelcro.com</i>
 `;
                         } else {
@@ -124,7 +122,6 @@ ${extraData?.walletAddress ? `(Wallet: <code>${extraData.walletAddress}</code>)`
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>\n` : ''}
-Type <b>Menu</b> to continue 🚀
 
 <i>powered by usevelcro.com</i>
 `;
@@ -145,8 +142,6 @@ ${message ? `\n💬 <b>Reason:</b> ${message}` : ''}
 If funds were deducted, they will be refunded automatically.
 Need help? Contact our support team.
 
-Type <b>Menu</b> to try again 🔄
-
 <i>powered by usevelcro.com</i>
 `;
                     break;
@@ -161,8 +156,6 @@ Your transaction expired before payment was received.
 📋 <b>Ref:</b> <code>${reference}</code>
 
 No funds were charged. You can start a new transaction anytime!
-
-Type <b>Menu</b> to start fresh 🔄
 
 <i>powered by usevelcro.com</i>
 `;
@@ -179,7 +172,6 @@ Your transaction has been cancelled.
 ${message ? `\n💬 <b>Reason:</b> ${message}` : ''}
 
 No funds were charged.
-Type <b>Menu</b> to start a new transaction 🔄
 
 <i>powered by usevelcro.com</i>
 `;
