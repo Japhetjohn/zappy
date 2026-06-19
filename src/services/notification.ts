@@ -102,7 +102,9 @@ Ref: <code>${reference}</code>
 <b>${amount} ${assetName}</b> has been sold successfully.
 ${rate ? `📊 Rate: ${currencySymbol}${Number(rate).toLocaleString()}` : ''}
 ${destAmount ? `\n💰 <b>${currencySymbol}${Number(destAmount).toLocaleString()}</b> has been sent to your bank account.` : ''}
-${extraData?.walletAddress ? `(Account: <code>${extraData.walletAddress}</code>)` : ''}
+
+🏦 <b>Bank Account:</b>
+<code>${extraData?.walletAddress || 'N/A'}</code>
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
@@ -117,8 +119,10 @@ ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 Your purchase of <b>${extraData?.destinationAmount ? extraData.destinationAmount : amount} ${assetName}</b> is complete!
 ${rate ? `📊 Rate: ₦${Number(rate).toLocaleString()}` : ''}
 
+🚀 <b>Destination Wallet:</b>
+<code>${extraData?.walletAddress || 'N/A'}</code>
+
 Crypto has been sent to your wallet. 🎉
-${extraData?.walletAddress ? `(Wallet: <code>${extraData.walletAddress}</code>)` : ''}
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>\n` : ''}

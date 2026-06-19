@@ -367,15 +367,23 @@ Paste it below now: 👇
 `);
     } else {
         // Buy Crypto Flow - Simple Acknowledgement
+        try {
+            await switchService.confirmDeposit(reference);
+        } catch (e) {
+            // Silently fail or log if auto-confirm fails for onramp
+            logger.warn(`Auto-confirm failed for onramp ${reference}: ${(e as any).message}`);
+        }
+
         return ctx.replyWithHTML(`
-✨ <b>Payment Acknowledged</b>
+⏳ <b>Checking payment...</b>
 
-Great! Our system is now automatically searching for your payment on the network.
+Our system is now searching for your Naira transfer. This usually takes 1-5 minutes.
 
-You will receive a notification here as soon as it is detected and confirmed. This usually takes 1-5 minutes.
-
-You can also check your transaction history at any time using the <b>History</b> button.
-`, Markup.inlineKeyboard([[Markup.button.callback('🏠 Main Menu', 'action_menu')]]));
+You will receive a notification here as soon as it is detected and confirmed. 🚀
+`, Markup.inlineKeyboard([
+            [Markup.button.callback('🔄 Confirm Payment', `action_confirm_payment:${reference}`)],
+            [Markup.button.callback('🏠 Main Menu', 'action_menu')]
+        ]));
     }
 });
 
