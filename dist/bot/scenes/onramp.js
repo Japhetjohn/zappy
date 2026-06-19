@@ -34,9 +34,7 @@ const onrampWizard = new telegraf_1.Scenes.WizardScene('onramp-wizard', async (c
 
 Select the asset you want to purchase:
 
-📊 <b>Transaction Limits (Per Transaction):</b>
-   • Minimum: <b>₦2,000</b>
-   • Maximum: <b>₦200,000</b>
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
@@ -152,7 +150,7 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
 
 <i>Example: 50,000</i>
 `;
-    await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
+    await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback('⬅️ Back', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
     ]));
     return ctx.wizard.next();
@@ -177,45 +175,47 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         return;
     }
     const amount = parseFloat(text.replace(/,/g, ''));
-    const MIN_AMOUNT = 2000;
-    const MAX_AMOUNT = 200000;
-    if (amount < MIN_AMOUNT) {
-        await ctx.replyWithHTML(`⚠️ <b>Amount Too Low</b>\n\n` +
-            `Minimum transaction: <b>₦${MIN_AMOUNT.toLocaleString()}</b>\n` +
-            `You entered: <b>₦${amount.toLocaleString()}</b>\n\n` +
-            `Please enter a larger amount.`, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.callback('🔄 Try Again', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
-        ]));
-        return;
-    }
-    if (amount > MAX_AMOUNT) {
-        await ctx.replyWithHTML(`⚠️ <b>Amount Too High</b>\n\n` +
-            `Maximum transaction: <b>₦${MAX_AMOUNT.toLocaleString()}</b>\n` +
-            `You entered: <b>₦${amount.toLocaleString()}</b>\n\n` +
-            `Please enter a smaller amount or split into multiple transactions.`, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.callback('🔄 Try Again', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
-        ]));
-        return;
-    }
     ctx.wizard.state.data.amount = amount;
     try {
+        const pointSettings = storage_1.storageService.getPointSettings();
+        const userPoints = storage_1.storageService.getUserPoints(ctx.from.id);
+        const redeemablePoints = Math.min(userPoints, pointSettings.maxPerTx);
+        const pointsDiscountPct = redeemablePoints * pointSettings.valuePct;
         const settings = storage_1.storageService.getSettings();
         const platformFeeRaw = settings.platform_fee || config_1.config.developerFee.toString();
         const platformFee = parseFloat(platformFeeRaw);
-        const quote = await switch_1.switchService.getOnrampQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
-        ctx.wizard.state.quote = quote;
+        const baseQuote = await switch_1.switchService.getOnrampQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
+        const bonusQuote = await switch_1.switchService.getOnrampQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, undefined, pointsDiscountPct);
+        ctx.wizard.state.quote = bonusQuote;
+        ctx.wizard.state.baseQuote = baseQuote;
         ctx.wizard.state.platformFee = platformFee;
-        const msg = `
+        ctx.wizard.state.pointsRedeemed = redeemablePoints;
+        ctx.wizard.state.pointsDiscountPct = pointsDiscountPct;
+        const hasBonus = redeemablePoints > 0 && bonusQuote.destination.amount > baseQuote.destination.amount;
+        let msg = `
 📊 <b>Review Quote</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💵 <b>You Pay:</b> ${(0, utils_1.formatAmount)(quote.source.amount)} ${ctx.wizard.state.data.currency}
-💰 <b>You Get:</b> ${(0, utils_1.formatAmount)(quote.destination.amount)} ${ctx.wizard.state.data.symbol}
-
-📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${(0, utils_1.formatAmount)(quote.rate)} ${ctx.wizard.state.data.currency}
-${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> ${ctx.wizard.state.platformFee}%
+💵 <b>You Pay:</b> ${(0, utils_1.formatAmount)(bonusQuote.source.amount)} ${ctx.wizard.state.data.currency}
+💰 <b>You Get:</b> ${(0, utils_1.formatAmount)(bonusQuote.destination.amount)} ${ctx.wizard.state.data.symbol}
+`;
+        if (hasBonus) {
+            msg += `
+🎁 <b>You have earned ${pointsDiscountPct}% bonus on your transaction</b>
+⭐ <b>Points Used:</b> ${redeemablePoints}
+💡 <i>Do more transactions to unlock higher bonuses</i>
+`;
+        }
+        else if (userPoints > 0) {
+            msg += `
+⭐ <b>Your Points:</b> ${userPoints.toLocaleString()}
+💡 <i>Do more transactions to unlock higher bonuses</i>
+`;
+        }
+        msg += `
+📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${(0, utils_1.formatAmount)(bonusQuote.rate)} ${ctx.wizard.state.data.currency}
+${bonusQuote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(bonusQuote.fee.total)} ${bonusQuote.fee.currency}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -274,7 +274,7 @@ Where should we send your <b>${ctx.wizard.state.data.symbol}</b>?
 
 Paste your wallet address below:
 `;
-    await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
+    await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback('⬅️ Back', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
     ]));
     return ctx.wizard.next();
@@ -326,7 +326,7 @@ Is this correct?
         [telegraf_1.Markup.button.callback('✅ Yes, Create Order', 'initiate')],
         [telegraf_1.Markup.button.callback('⬅️ Back', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
     ];
-    await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(buttons));
+    await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard(buttons));
 }, async (ctx) => {
     var _a;
     if (ctx.callbackQuery) {
@@ -345,15 +345,18 @@ Is this correct?
             walletAddress: walletAddress,
             holderName: ctx.from.first_name || 'Trader',
             currency: ctx.wizard.state.data.currency,
-            developerFee: ctx.wizard.state.platformFee
+            developerFee: ctx.wizard.state.platformFee,
+            pointDiscountPct: ctx.wizard.state.pointsDiscountPct
         });
-        storage_1.storageService.addTransaction({
+        storage_1.storageService.addTransactionAndRedeemPoints({
             userId: ctx.from.id,
             reference: result.reference,
             type: 'ONRAMP',
             asset: ctx.wizard.state.data.asset.id,
             amount: ctx.wizard.state.data.amount,
-            currency: ctx.wizard.state.data.currency
+            currency: ctx.wizard.state.data.currency,
+            pointsRedeemed: ctx.wizard.state.pointsRedeemed || 0,
+            pointsDiscountPct: ctx.wizard.state.pointsDiscountPct || 0
         });
         const msg = `
 ✅ <b>Order Created!</b>
@@ -376,7 +379,7 @@ Please make a transfer from <b>your bank account</b> directly to the account bel
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚡️ <b>Automated Detection:</b>
-Our system is watching for your payment. You will be notified automatically once the funds are received.
+You will be notified  once the funds are received.
 
 💡 <i>No need to notify us — Sit back and wait for your crypto!</i>
 `;

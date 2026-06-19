@@ -6,6 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.switchService = exports.SwitchService = void 0;
 const axios_1 = __importDefault(require("axios"));
 const config_1 = require("../config");
+function computeEffectiveFee(pointDiscountPct) {
+    const baseFee = config_1.config.developerFee;
+    if (!pointDiscountPct || pointDiscountPct <= 0)
+        return baseFee;
+    return Math.max(0, baseFee - pointDiscountPct);
+}
 class SwitchService {
     constructor() {
         this.useMock = false;
@@ -100,7 +106,7 @@ class SwitchService {
             throw new Error(finalMessage);
         }
     }
-    async getOnrampQuote(amount, country, asset, currency = 'NGN', developerFee) {
+    async getOnrampQuote(amount, country, asset, currency = 'NGN', developerFee, pointDiscountPct) {
         var _a;
         try {
             const payload = {
@@ -109,7 +115,7 @@ class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: developerFee !== undefined ? developerFee : config_1.config.developerFee,
+                developer_fee: developerFee !== undefined ? developerFee : computeEffectiveFee(pointDiscountPct),
             };
             console.log('--- DEBUG: ONRAMP QUOTE REQUEST ---');
             console.log(JSON.stringify(payload, null, 2));
@@ -147,8 +153,8 @@ class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: data.developerFee !== undefined ? data.developerFee : config_1.config.developerFee,
-                developer_wallet: config_1.config.developerWallet || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV',
+                developer_fee: data.developerFee !== undefined ? data.developerFee : computeEffectiveFee(data.pointDiscountPct),
+                developer_wallet: config_1.config.developerWallet,
             };
             if (data.senderBankCode && data.senderAccountNumber) {
                 payload.sender = {
@@ -169,7 +175,7 @@ class SwitchService {
             throw error;
         }
     }
-    async getOfframpQuote(amount, country, asset, currency = 'NGN', developerFee) {
+    async getOfframpQuote(amount, country, asset, currency = 'NGN', developerFee, pointDiscountPct) {
         var _a;
         try {
             const response = await this.api.post('/offramp/quote', {
@@ -178,7 +184,7 @@ class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: developerFee !== undefined ? developerFee : config_1.config.developerFee,
+                developer_fee: developerFee !== undefined ? developerFee : computeEffectiveFee(pointDiscountPct),
             });
             if (response.data.success) {
                 return response.data.data;
@@ -206,7 +212,7 @@ class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: data.developerFee !== undefined ? data.developerFee : config_1.config.developerFee,
+                developer_fee: data.developerFee !== undefined ? data.developerFee : computeEffectiveFee(data.pointDiscountPct),
                 developer_wallet: config_1.config.developerWallet
             });
             if (response.data.success) {
@@ -291,7 +297,7 @@ class SwitchService {
                     wallet_address: walletAddress
                 }
             };
-            const response = await this.api.post('/withdraw', payload);
+            const response = await this.api.post('/developer/withdraw', payload);
             if (response.data.success) {
                 return response.data.data;
             }

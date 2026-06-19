@@ -20,6 +20,21 @@ export const bot = new Telegraf<BotContext>(config.botToken, {
     }
 });
 
+// Cache bot username for referral link generation
+let botUsername: string | null = null;
+
+async function getBotUsername(): Promise<string | null> {
+    if (botUsername) return botUsername;
+    try {
+        const me = await bot.telegram.getMe();
+        botUsername = me.username;
+        return botUsername;
+    } catch (e: any) {
+        logger.error(`Failed to fetch bot username: ${e.message}`);
+        return null;
+    }
+}
+
 const stage = new Scenes.Stage<BotContext>([onrampWizard, offrampWizard]);
 bot.use(session());
 
@@ -35,6 +50,69 @@ bot.use((ctx, next) => {
 // ═══════════════════════════════════════════════════════════
 // 🏠 START COMMAND ( Global Priority )
 // ═══════════════════════════════════════════════════════════
+bot.command('points', async (ctx) => {
+    if (!ctx.from) return;
+    try {
+        const pointSettings = storageService.getPointSettings();
+        const points = storageService.getUserPoints(ctx.from.id);
+        const pointsUsed = Math.min(points, pointSettings.maxPerTx);
+        const bonusPct = pointsUsed * pointSettings.valuePct;
+
+        await ctx.replyWithHTML(`
+🎁 <b>Your Bonus Points</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⭐ <b>Total Points Acquired:</b> ${points.toLocaleString()}
+
+🎁 <b>Next Transaction Bonus:</b> ${bonusPct}%
+
+💡 <i>You earn 1 point for every completed transaction.</i>
+💡 <i>Do more transactions to unlock higher bonuses</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The more you trade, the bigger your bonus! 🚀
+`, MAIN_KEYBOARD);
+    } catch (err: any) {
+        logger.error(`Error in /points command: ${err.message}`);
+        await ctx.reply('❌ Could not fetch your points balance.');
+    }
+});
+
+bot.command('referrals', async (ctx) => {
+    if (!ctx.from) return;
+    try {
+        const stats = storageService.getUserReferralStats(ctx.from.id);
+        const username = await getBotUsername();
+        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+
+        await ctx.replyWithHTML(`
+👥 <b>My Referrals</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>Your referral link:</b>
+<code>${link}</code>
+
+👤 <b>Referrals:</b> ${stats.referralCount}
+⭐ <b>Points earned:</b> ${stats.referralPointsEarned}
+
+💡 <i>Share your link and earn 5 points for every friend who joins!</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+powered by usevelcro.com
+`, Markup.inlineKeyboard([
+            [Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and earn bonuses on every crypto transaction!')}`)],
+            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    } catch (err: any) {
+        logger.error(`Error in /referrals command: ${err.message}`);
+        await ctx.reply('❌ Could not fetch your referral info.');
+    }
+});
+
 bot.command('start', async (ctx) => {
     try {
         // Force clear scene state manually since we are before stage middleware
@@ -44,21 +122,44 @@ bot.command('start', async (ctx) => {
 
         logger.info(`Processing /start command for ${ctx.from?.id}`);
         const name = ctx.from?.first_name || 'Friend';
-        const msg = getWelcomeMsg(name);
+
+        // Check for referral code in deep link
+        let referrerId: number | undefined;
+        const refCode = (ctx as any).startPayload || ctx.payload;
+        if (refCode && ctx.from) {
+            const referrer = storageService.getUserByReferralCode(refCode.toUpperCase());
+            if (referrer && referrer.id !== ctx.from.id) {
+                referrerId = referrer.id;
+            }
+        }
 
         // Attempt to register user in background
         if (ctx.from) {
             try {
-                storageService.upsertUser(
+                const isNewUser = storageService.upsertUser(
                     ctx.from.id,
                     ctx.from.username || 'unknown',
                     `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim()
                 );
+
+                // Only record referral if this is a brand new user with a valid referrer
+                if (isNewUser && referrerId) {
+                    const recorded = storageService.recordReferral(ctx.from.id, referrerId);
+                    if (recorded) {
+                        const referredUsername = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Someone');
+                        try {
+                            await bot.telegram.sendMessage(referrerId, `${referredUsername} used your referral link, you have earned 5 points, powered by usevelcro.com`);
+                        } catch (notifyErr: any) {
+                            logger.error(`Failed to notify referrer ${referrerId}: ${notifyErr.message}`);
+                        }
+                    }
+                }
             } catch (err: any) {
                 logger.error(`Failed to register user ${ctx.from?.id}: ${err.message}`);
             }
         }
 
+        const msg = getWelcomeMsg(name);
         await ctx.replyWithHTML(msg, MAIN_KEYBOARD);
     } catch (err: any) {
         logger.error(`Error in /start command: ${err.message}`);
@@ -256,6 +357,72 @@ bot.action('action_help', async (ctx) => {
 bot.action('action_history', async (ctx) => {
     if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching history...').catch(() => { });
     await handleHistory(ctx);
+});
+
+bot.action('action_points', async (ctx) => {
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching points...').catch(() => { });
+    if (!ctx.from) return;
+    try {
+        const pointSettings = storageService.getPointSettings();
+        const points = storageService.getUserPoints(ctx.from.id);
+        const pointsUsedAction = Math.min(points, pointSettings.maxPerTx);
+        const bonusPctAction = pointsUsedAction * pointSettings.valuePct;
+        await ctx.replyWithHTML(`
+🎁 <b>Your Bonus Points</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⭐ <b>Total Points Acquired:</b> ${points.toLocaleString()}
+
+🎁 <b>Next Transaction Bonus:</b> ${bonusPctAction}%
+
+💡 <i>You earn 1 point for every completed transaction.</i>
+💡 <i>Do more transactions to unlock higher bonuses</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The more you trade, the bigger your bonus! 🚀
+`, Markup.inlineKeyboard([
+            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    } catch (err: any) {
+        logger.error(`Error in action_points: ${err.message}`);
+        await ctx.reply('❌ Could not fetch your points balance.');
+    }
+});
+
+bot.action('action_referrals', async (ctx) => {
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching referrals...').catch(() => { });
+    if (!ctx.from) return;
+    try {
+        const stats = storageService.getUserReferralStats(ctx.from.id);
+        const username = await getBotUsername();
+        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+
+        await ctx.replyWithHTML(`
+👥 <b>My Referrals</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>Your referral link:</b>
+<code>${link}</code>
+
+👤 <b>Referrals:</b> ${stats.referralCount}
+⭐ <b>Points earned:</b> ${stats.referralPointsEarned}
+
+💡 <i>Share your link and earn 5 points for every friend who joins!</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+powered by usevelcro.com
+`, Markup.inlineKeyboard([
+            [Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and earn bonuses on every crypto transaction!')}`)],
+            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    } catch (err: any) {
+        logger.error(`Error in action_referrals: ${err.message}`);
+        await ctx.reply('❌ Could not fetch your referral info.');
+    }
 });
 
 // Dynamic status checker

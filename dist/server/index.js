@@ -17,7 +17,7 @@ app.get('/health', (req, res) => {
     res.status(200).send({ status: 'OK', timestamp: new Date().toISOString() });
 });
 app.get('/', (req, res) => {
-    res.status(200).send('Bitnova Africa Bot Server is Running ⚡️');
+    res.status(200).send('Velcro Bot Server is Running ⚡️');
 });
 const adminAuth = (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -164,6 +164,32 @@ app.get('/api/admin/users/:id/transactions', adminAuth, (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+app.post('/api/admin/withdraw', adminAuth, async (req, res) => {
+    try {
+        const SOLANA_WALLET = config_1.config.developerWallet || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV';
+        const asset = req.body.asset || 'solana:usdc';
+        const fees = await switch_1.switchService.getDeveloperFees();
+        if (!fees.amount || fees.amount <= 0) {
+            return res.status(400).json({ error: 'No fees available to withdraw', available: fees });
+        }
+        logger_1.default.info(`💸 Admin initiated fee withdrawal: ${fees.amount} ${fees.currency} -> ${SOLANA_WALLET} as ${asset}`);
+        const result = await switch_1.switchService.withdrawDeveloperFees(asset, SOLANA_WALLET);
+        logger_1.default.info(`✅ Fee withdrawal successful: ${JSON.stringify(result)}`);
+        return res.json({
+            success: true,
+            message: 'Withdrawal initiated successfully',
+            data: {
+                ...result,
+                wallet: SOLANA_WALLET,
+                asset,
+            }
+        });
+    }
+    catch (e) {
+        logger_1.default.error(`❌ Fee withdrawal failed: ${e.message}`);
+        return res.status(500).json({ error: e.message });
+    }
+});
 app.get('/api/admin/settings', adminAuth, (req, res) => {
     try {
         const settings = storage_1.storageService.getSettings();
@@ -173,13 +199,63 @@ app.get('/api/admin/settings', adminAuth, (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+const ALLOWED_SETTINGS_KEYS = [
+    'platform_fee',
+    'points_per_tx',
+    'points_value_pct',
+    'max_points_per_tx'
+];
 app.post('/api/admin/settings', adminAuth, (req, res) => {
     try {
         const { key, value } = req.body;
         if (!key || value === undefined)
             throw new Error('Key and value required');
+        if (!ALLOWED_SETTINGS_KEYS.includes(key)) {
+            return res.status(400).json({ error: 'Setting key not allowed', allowed: ALLOWED_SETTINGS_KEYS });
+        }
+        if (key === 'platform_fee') {
+            const fee = parseFloat(value);
+            if (isNaN(fee) || fee < 0 || fee > 50) {
+                return res.status(400).json({ error: 'platform_fee must be between 0 and 50' });
+            }
+        }
         storage_1.storageService.updateSetting(key, value.toString());
-        res.json({ success: true });
+        return res.json({ success: true });
+    }
+    catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/points', adminAuth, (req, res) => {
+    try {
+        const stats = storage_1.storageService.getPointStats();
+        const settings = storage_1.storageService.getPointSettings();
+        res.json({ ...stats, settings });
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/users/:id/points', adminAuth, (req, res) => {
+    var _a;
+    try {
+        const userId = parseInt(req.params.id);
+        const user = storage_1.storageService.getUserDetailStats(userId);
+        res.json({
+            userId,
+            currentBalance: ((_a = user.user) === null || _a === void 0 ? void 0 : _a.points) || 0,
+            earned: user.stats.pointsEarned,
+            redeemed: user.stats.pointsRedeemed
+        });
+    }
+    catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+app.get('/api/admin/referrals', adminAuth, (req, res) => {
+    try {
+        const stats = storage_1.storageService.getReferralStats();
+        res.json(stats);
     }
     catch (e) {
         res.status(500).json({ error: e.message });

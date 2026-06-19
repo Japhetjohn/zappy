@@ -6,18 +6,30 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.config = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
+function requireEnv(key) {
+    const value = process.env[key];
+    if (!value) {
+        throw new Error(`Missing required environment variable: ${key}`);
+    }
+    return value;
+}
 exports.config = {
-    botToken: process.env.BOT_TOKEN,
+    botToken: requireEnv('BOT_TOKEN'),
     telegramProxy: process.env.TELEGRAM_PROXY,
     switch: {
-        apiKey: process.env.SWITCH_API_KEY,
-        baseUrl: process.env.SWITCH_API_URL,
-        webhookSecret: process.env.SWITCH_WEBHOOK_SECRET,
+        apiKey: requireEnv('SWITCH_API_KEY'),
+        baseUrl: requireEnv('SWITCH_API_URL'),
+        webhookSecret: requireEnv('SWITCH_WEBHOOK_SECRET'),
     },
     developerFee: Number(process.env.DEVELOPER_FEE) || 1,
-    developerWallet: process.env.DEVELOPER_WALLET || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV',
-    adminPassword: process.env.ADMIN_PASSWORD || 'kuulsinim45',
+    developerWallet: requireEnv('DEVELOPER_WALLET'),
+    adminPassword: requireEnv('ADMIN_PASSWORD'),
     port: process.env.PORT || 3000,
     baseUrl: process.env.BASE_URL,
+    points: {
+        perTx: Number(process.env.POINTS_PER_TX) || 1,
+        valuePct: Number(process.env.POINTS_VALUE_PCT) || 0.1,
+        maxPerTx: Number(process.env.MAX_POINTS_PER_TX) || 5,
+    },
 };
 //# sourceMappingURL=index.js.map

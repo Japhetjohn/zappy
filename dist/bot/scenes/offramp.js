@@ -34,9 +34,7 @@ const offrampWizard = new telegraf_1.Scenes.WizardScene('offramp-wizard', async 
 
 Choose the crypto asset you wish to sell:
 
-📊 <b>Transaction Limits (Per Transaction):</b>
-   • Minimum: <b>$1</b>
-   • Maximum: <b>$10,000</b>
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
@@ -186,45 +184,48 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
         return;
     }
     const amount = parseFloat(text.replace(/,/g, ''));
-    const MIN_AMOUNT_USD = 1;
-    const MAX_AMOUNT_USD = 10000;
-    if (amount < MIN_AMOUNT_USD) {
-        await ctx.replyWithHTML(`⚠️ <b>Amount Too Low</b>\n\n` +
-            `Minimum transaction: <b>$${MIN_AMOUNT_USD.toLocaleString()}</b>\n` +
-            `You entered: <b>${amount.toLocaleString()} ${ctx.wizard.state.data.symbol}</b>\n\n` +
-            `Please enter a larger amount.`, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.callback('🔄 Try Again', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
-        ]));
-        return;
-    }
-    if (amount > MAX_AMOUNT_USD) {
-        await ctx.replyWithHTML(`⚠️ <b>Amount Too High</b>\n\n` +
-            `Maximum transaction: <b>$${MAX_AMOUNT_USD.toLocaleString()}</b>\n` +
-            `You entered: <b>${amount.toLocaleString()} ${ctx.wizard.state.data.symbol}</b>\n\n` +
-            `Please enter a smaller amount or split into multiple transactions.`, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.callback('🔄 Try Again', 'back'), telegraf_1.Markup.button.callback('❌ Cancel', 'cancel')]
-        ]));
-        return;
-    }
     ctx.wizard.state.data.amount = amount;
     try {
+        const pointSettings = storage_1.storageService.getPointSettings();
+        const userPoints = storage_1.storageService.getUserPoints(ctx.from.id);
+        const redeemablePoints = Math.min(userPoints, pointSettings.maxPerTx);
+        const pointsDiscountPct = redeemablePoints * pointSettings.valuePct;
         const settings = storage_1.storageService.getSettings();
         const platformFeeRaw = settings.platform_fee || config_1.config.developerFee.toString();
         const platformFee = parseFloat(platformFeeRaw);
-        const quote = await switch_1.switchService.getOfframpQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
-        ctx.wizard.state.quote = quote;
+        const baseQuote = await switch_1.switchService.getOfframpQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
+        const bonusQuote = await switch_1.switchService.getOfframpQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, undefined, pointsDiscountPct);
+        ctx.wizard.state.quote = bonusQuote;
+        ctx.wizard.state.baseQuote = baseQuote;
         ctx.wizard.state.platformFee = platformFee;
-        const msg = `
+        ctx.wizard.state.pointsRedeemed = redeemablePoints;
+        ctx.wizard.state.pointsDiscountPct = pointsDiscountPct;
+        const hasBonus = redeemablePoints > 0 && bonusQuote.destination.amount > baseQuote.destination.amount;
+        let msg = `
 📊 <b>Review Quote</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💰 <b>You Sell:</b> ${(0, utils_1.formatAmount)(quote.source.amount)} ${ctx.wizard.state.data.symbol}
-💵 <b>You Get:</b> ${(0, utils_1.formatAmount)(quote.destination.amount)} ${quote.destination.currency}
+💰 <b>You Sell:</b> ${(0, utils_1.formatAmount)(bonusQuote.source.amount)} ${ctx.wizard.state.data.symbol}
+💵 <b>You Get:</b> ${(0, utils_1.formatAmount)(bonusQuote.destination.amount)} ${bonusQuote.destination.currency}
+`;
+        if (hasBonus) {
+            msg += `
+🎁 <b>You have earned ${pointsDiscountPct}% bonus on your transaction</b>
+⭐ <b>Points Used:</b> ${redeemablePoints}
+💡 <i>Do more transactions to unlock higher bonuses</i>
+`;
+        }
+        else if (userPoints > 0) {
+            msg += `
+⭐ <b>Your Points:</b> ${userPoints.toLocaleString()}
+💡 <i>Do more transactions to unlock higher bonuses</i>
+`;
+        }
+        msg += `
+📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${(0, utils_1.formatAmount)(bonusQuote.rate)} ${bonusQuote.destination.currency}
+${bonusQuote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(bonusQuote.fee.total)} ${bonusQuote.fee.currency}` : ''}
 
-📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${(0, utils_1.formatAmount)(quote.rate)} ${quote.destination.currency}
-${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${quote.fee.currency}` : ''}
-⚡️ <b>Platform Fee:</b> ${ctx.wizard.state.platformFee}%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -361,6 +362,7 @@ Choose your receiving bank:
         await ctx.replyWithHTML('❌ Failed to load banks. Type /cancel to restart.');
     }
 }, async (ctx) => {
+    var _a, _b;
     if (ctx.callbackQuery) {
         const data = ctx.callbackQuery.data;
         if (ctx.callbackQuery)
@@ -419,7 +421,10 @@ Choose your receiving bank:
         }
     }
     if (b.holderName) {
-        const msg = `
+        const hasBonus = (ctx.wizard.state.pointsRedeemed || 0) > 0;
+        const baseAmount = ((_b = (_a = ctx.wizard.state.baseQuote) === null || _a === void 0 ? void 0 : _a.destination) === null || _b === void 0 ? void 0 : _b.amount) || ctx.wizard.state.quote.destination.amount;
+        const bonusAmount = ctx.wizard.state.quote.destination.amount;
+        let msg = `
 🏁 <b>Review Transfer</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -429,8 +434,16 @@ Choose your receiving bank:
 💳 <b>Account:</b> <code>${b.accountNumber}</code>
 
 💸 <b>Selling:</b> ${(0, utils_1.formatAmount)(ctx.wizard.state.data.amount)} ${ctx.wizard.state.data.symbol}
-💵 <b>Receiving:</b> ${(0, utils_1.formatAmount)(ctx.wizard.state.quote.destination.amount)} ${ctx.wizard.state.data.currency}
-
+💵 <b>Receiving:</b> ${(0, utils_1.formatAmount)(bonusAmount)} ${ctx.wizard.state.data.currency}
+`;
+        if (hasBonus) {
+            msg += `
+🎁 <b>You have earned ${ctx.wizard.state.pointsDiscountPct}% bonus on your transaction</b>
+⭐ <b>Points Used:</b> ${ctx.wizard.state.pointsRedeemed}
+💡 <i>Do more transactions to unlock higher bonuses</i>
+`;
+        }
+        msg += `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 *Proceed with this transaction?*
@@ -463,7 +476,8 @@ Choose your receiving bank:
                 accountNumber: ctx.wizard.state.data.beneficiary.accountNumber,
                 holderName: ctx.wizard.state.data.beneficiary.holderName
             },
-            developerFee: ctx.wizard.state.platformFee
+            developerFee: ctx.wizard.state.platformFee,
+            pointDiscountPct: ctx.wizard.state.pointsDiscountPct
         });
         try {
             storage_1.storageService.addBeneficiary({
@@ -476,13 +490,15 @@ Choose your receiving bank:
         }
         catch (e) {
         }
-        storage_1.storageService.addTransaction({
+        storage_1.storageService.addTransactionAndRedeemPoints({
             userId: ctx.from.id,
             reference: result.reference,
             type: 'OFFRAMP',
             asset: ctx.wizard.state.data.asset.id,
             amount: ctx.wizard.state.data.amount,
-            currency: ctx.wizard.state.data.currency
+            currency: 'USD',
+            pointsRedeemed: ctx.wizard.state.pointsRedeemed || 0,
+            pointsDiscountPct: ctx.wizard.state.pointsDiscountPct || 0
         });
         const msg = `
 ✅ <b>Order Created!</b>

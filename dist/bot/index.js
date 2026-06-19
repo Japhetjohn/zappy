@@ -20,6 +20,20 @@ exports.bot = new telegraf_1.Telegraf(config_1.config.botToken, {
         agent: config_1.config.telegramProxy ? new https_proxy_agent_1.HttpsProxyAgent(config_1.config.telegramProxy) : undefined,
     }
 });
+let botUsername = null;
+async function getBotUsername() {
+    if (botUsername)
+        return botUsername;
+    try {
+        const me = await exports.bot.telegram.getMe();
+        botUsername = me.username;
+        return botUsername;
+    }
+    catch (e) {
+        logger_1.default.error(`Failed to fetch bot username: ${e.message}`);
+        return null;
+    }
+}
 const stage = new telegraf_1.Scenes.Stage([onramp_1.onrampWizard, offramp_1.offrampWizard]);
 exports.bot.use((0, telegraf_1.session)());
 exports.bot.use((ctx, next) => {
@@ -30,6 +44,69 @@ exports.bot.use((ctx, next) => {
     logger_1.default.info(`Update: [${updateType}] from [${from}]${text ? ` text: ${text}` : ''}`);
     return next();
 });
+exports.bot.command('points', async (ctx) => {
+    if (!ctx.from)
+        return;
+    try {
+        const pointSettings = storage_1.storageService.getPointSettings();
+        const points = storage_1.storageService.getUserPoints(ctx.from.id);
+        const pointsUsed = Math.min(points, pointSettings.maxPerTx);
+        const bonusPct = pointsUsed * pointSettings.valuePct;
+        await ctx.replyWithHTML(`
+🎁 <b>Your Bonus Points</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⭐ <b>Total Points Acquired:</b> ${points.toLocaleString()}
+
+🎁 <b>Next Transaction Bonus:</b> ${bonusPct}%
+
+💡 <i>You earn 1 point for every completed transaction.</i>
+💡 <i>Do more transactions to unlock higher bonuses</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The more you trade, the bigger your bonus! 🚀
+`, keyboards_1.MAIN_KEYBOARD);
+    }
+    catch (err) {
+        logger_1.default.error(`Error in /points command: ${err.message}`);
+        await ctx.reply('❌ Could not fetch your points balance.');
+    }
+});
+exports.bot.command('referrals', async (ctx) => {
+    if (!ctx.from)
+        return;
+    try {
+        const stats = storage_1.storageService.getUserReferralStats(ctx.from.id);
+        const username = await getBotUsername();
+        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+        await ctx.replyWithHTML(`
+👥 <b>My Referrals</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>Your referral link:</b>
+<code>${link}</code>
+
+👤 <b>Referrals:</b> ${stats.referralCount}
+⭐ <b>Points earned:</b> ${stats.referralPointsEarned}
+
+💡 <i>Share your link and earn 5 points for every friend who joins!</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+powered by usevelcro.com
+`, telegraf_1.Markup.inlineKeyboard([
+            [telegraf_1.Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and earn bonuses on every crypto transaction!')}`)],
+            [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    }
+    catch (err) {
+        logger_1.default.error(`Error in /referrals command: ${err.message}`);
+        await ctx.reply('❌ Could not fetch your referral info.');
+    }
+});
 exports.bot.command('start', async (ctx) => {
     var _a, _b, _c;
     try {
@@ -38,15 +115,35 @@ exports.bot.command('start', async (ctx) => {
         }
         logger_1.default.info(`Processing /start command for ${(_a = ctx.from) === null || _a === void 0 ? void 0 : _a.id}`);
         const name = ((_b = ctx.from) === null || _b === void 0 ? void 0 : _b.first_name) || 'Friend';
-        const msg = getWelcomeMsg(name);
+        let referrerId;
+        const refCode = ctx.startPayload || ctx.payload;
+        if (refCode && ctx.from) {
+            const referrer = storage_1.storageService.getUserByReferralCode(refCode.toUpperCase());
+            if (referrer && referrer.id !== ctx.from.id) {
+                referrerId = referrer.id;
+            }
+        }
         if (ctx.from) {
             try {
-                storage_1.storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown', `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim());
+                const isNewUser = storage_1.storageService.upsertUser(ctx.from.id, ctx.from.username || 'unknown', `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim());
+                if (isNewUser && referrerId) {
+                    const recorded = storage_1.storageService.recordReferral(ctx.from.id, referrerId);
+                    if (recorded) {
+                        const referredUsername = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Someone');
+                        try {
+                            await exports.bot.telegram.sendMessage(referrerId, `${referredUsername} used your referral link, you have earned 5 points, powered by usevelcro.com`);
+                        }
+                        catch (notifyErr) {
+                            logger_1.default.error(`Failed to notify referrer ${referrerId}: ${notifyErr.message}`);
+                        }
+                    }
+                }
             }
             catch (err) {
                 logger_1.default.error(`Failed to register user ${(_c = ctx.from) === null || _c === void 0 ? void 0 : _c.id}: ${err.message}`);
             }
         }
+        const msg = getWelcomeMsg(name);
         await ctx.replyWithHTML(msg, keyboards_1.MAIN_KEYBOARD);
     }
     catch (err) {
@@ -64,7 +161,7 @@ exports.bot.use(stage.middleware());
 const getWelcomeMsg = (name) => `
 Hello ${name} 👋
 
-My name is <b>Bitnova Africa</b>, your friendly crypto assistant! 🤖✨
+My name is <b>Velcro</b>, your friendly crypto assistant! 🤖✨
 
 I'm here to make buying and selling crypto super easy, fast, and secure for you. Whether you want to turn cash into crypto or crypto into cash, I've got you covered! 🚀
 
@@ -75,19 +172,19 @@ I'm here to make buying and selling crypto super easy, fast, and secure for you.
 <i>Ready to get started? Tap a button below!</i> 👇
 `;
 const keyboards_1 = require("./keyboards");
-const ADMIN_USERNAMES = ['japhet', 'kamalkt6'];
+const ADMIN_USERNAMES = ['@official_johny01', 'kamalkt6'];
 exports.bot.command('stats', async (ctx) => {
     var _a, _b;
     const username = (_b = (_a = ctx.from) === null || _a === void 0 ? void 0 : _a.username) === null || _b === void 0 ? void 0 : _b.toLowerCase();
     if (!username || !ADMIN_USERNAMES.includes(username)) {
-        await ctx.replyWithHTML(`🔒 <b>Access Denied</b>\n\nSorry, this command is for <b>Bitnova Admins</b> only.\n\nIf you need help, type /help or join our community! 🌍`);
+        await ctx.replyWithHTML(`🔒 <b>Access Denied</b>\n\nSorry, this command is for <b>Velcro Admins</b> only.\n\nIf you need help, type /help or join our community! 🌍`);
         return;
     }
     try {
         const stats = storage_1.storageService.getStats();
         const fees = await switch_1.switchService.getDeveloperFees();
         const msg = `
-📊 <b>Bitnova Africa Platform Stats</b>
+📊 <b>Velcro Platform Stats</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -161,6 +258,27 @@ exports.bot.on('text', async (ctx, next) => {
     }
     return next();
 });
+exports.bot.action('action_menu', async (ctx) => {
+    var _a, _b, _c;
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
+    try {
+        if ((_a = ctx.scene) === null || _a === void 0 ? void 0 : _a.current) {
+            await ctx.scene.leave();
+        }
+        const name = ((_b = ctx.from) === null || _b === void 0 ? void 0 : _b.first_name) || 'Friend';
+        await (0, index_1.safeEdit)(ctx, getWelcomeMsg(name), keyboards_1.MAIN_KEYBOARD);
+    }
+    catch (err) {
+        try {
+            const name = ((_c = ctx.from) === null || _c === void 0 ? void 0 : _c.first_name) || 'Friend';
+            await ctx.replyWithHTML(getWelcomeMsg(name), keyboards_1.MAIN_KEYBOARD);
+        }
+        catch (e) {
+            logger_1.default.error(`action_menu fallback failed: ${e.message}`);
+        }
+    }
+});
 exports.bot.action('action_onramp', async (ctx) => {
     if (ctx.callbackQuery)
         await ctx.answerCbQuery().catch(() => { });
@@ -209,6 +327,75 @@ exports.bot.action('action_history', async (ctx) => {
         await ctx.answerCbQuery('Fetching history...').catch(() => { });
     await handleHistory(ctx);
 });
+exports.bot.action('action_points', async (ctx) => {
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery('Fetching points...').catch(() => { });
+    if (!ctx.from)
+        return;
+    try {
+        const pointSettings = storage_1.storageService.getPointSettings();
+        const points = storage_1.storageService.getUserPoints(ctx.from.id);
+        const pointsUsedAction = Math.min(points, pointSettings.maxPerTx);
+        const bonusPctAction = pointsUsedAction * pointSettings.valuePct;
+        await ctx.replyWithHTML(`
+🎁 <b>Your Bonus Points</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⭐ <b>Total Points Acquired:</b> ${points.toLocaleString()}
+
+🎁 <b>Next Transaction Bonus:</b> ${bonusPctAction}%
+
+💡 <i>You earn 1 point for every completed transaction.</i>
+💡 <i>Do more transactions to unlock higher bonuses</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The more you trade, the bigger your bonus! 🚀
+`, telegraf_1.Markup.inlineKeyboard([
+            [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    }
+    catch (err) {
+        logger_1.default.error(`Error in action_points: ${err.message}`);
+        await ctx.reply('❌ Could not fetch your points balance.');
+    }
+});
+exports.bot.action('action_referrals', async (ctx) => {
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery('Fetching referrals...').catch(() => { });
+    if (!ctx.from)
+        return;
+    try {
+        const stats = storage_1.storageService.getUserReferralStats(ctx.from.id);
+        const username = await getBotUsername();
+        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+        await ctx.replyWithHTML(`
+👥 <b>My Referrals</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 <b>Your referral link:</b>
+<code>${link}</code>
+
+👤 <b>Referrals:</b> ${stats.referralCount}
+⭐ <b>Points earned:</b> ${stats.referralPointsEarned}
+
+💡 <i>Share your link and earn 5 points for every friend who joins!</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+powered by usevelcro.com
+`, telegraf_1.Markup.inlineKeyboard([
+            [telegraf_1.Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and earn bonuses on every crypto transaction!')}`)],
+            [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    }
+    catch (err) {
+        logger_1.default.error(`Error in action_referrals: ${err.message}`);
+        await ctx.reply('❌ Could not fetch your referral info.');
+    }
+});
 exports.bot.action(/^status_(.+)$/, async (ctx) => {
     const reference = ctx.match[1];
     if (ctx.callbackQuery)
@@ -223,9 +410,9 @@ exports.bot.action(/^status_(.+)$/, async (ctx) => {
         const hash = (updatedTx === null || updatedTx === void 0 ? void 0 : updatedTx.hash) || '';
         const msg = formatStatusMessage(status, hash);
         const redoAction = (transaction === null || transaction === void 0 ? void 0 : transaction.type) === 'OFFRAMP' ? 'action_offramp' : 'action_onramp';
-        await (0, index_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
-            [telegraf_1.Markup.button.url('📞 Contact Support', 'https://t.me/bitnova_africa')],
+            [telegraf_1.Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro')],
             [telegraf_1.Markup.button.callback('🔁 Redo Transaction', redoAction)],
             [telegraf_1.Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));
@@ -240,12 +427,12 @@ exports.bot.action(/^confirm_(.+)$/, async (ctx) => {
         await ctx.answerCbQuery('Notifying system...').catch(() => { });
     try {
         await switch_1.switchService.confirmDeposit(reference);
-        await (0, index_1.safeEdit)(ctx, `✅ <b>Payment Notified</b>\n\nReference: <code>${reference}</code>\n\nWe are now verifying your transfer.`, telegraf_1.Markup.inlineKeyboard([
+        await ctx.replyWithHTML(`✅ <b>Payment Notified</b>\n\nReference: <code>${reference}</code>\n\nWe are now verifying your transfer.`, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🏠 Menu', 'action_menu')]
         ]));
     }
     catch (error) {
-        await (0, index_1.safeEdit)(ctx, `❌ *Error:* ${error.message}`);
+        await ctx.replyWithHTML(`❌ <b>Error:</b> ${error.message}`);
     }
 });
 exports.bot.action('cancel', async (ctx) => {
@@ -380,7 +567,7 @@ Select a transaction to see details:
 }
 async function handleHelp(ctx) {
     const msg = `
-❓ <b>How does Bitnova Africa work?</b>
+❓ <b>How does Velcro work?</b>
 
 I'm designed to be the simplest way to move between cash and crypto! 🌍
 
@@ -398,7 +585,7 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 • Get cash in your bank account instantly! 💸
 
 <b>Need human help?</b>
-Just join our community group at <a href="https://t.me/bitnova_africa">@bitnova_africa</a> and our team will sort you out! 🌍🤝
+Just join our community group at <a href="https://t.me/usevelcro">@usevelcro</a> and our team will sort you out! 🌍🤝
 `;
     await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
@@ -424,7 +611,7 @@ exports.bot.catch((err, ctx) => {
         logger_1.default.debug(err.stack);
 });
 async function startBot() {
-    logger_1.default.info('🚀 Bitnova Africa UX 2026 Engine Starting...');
+    logger_1.default.info('🚀 Velcro UX 2026 Engine Starting...');
     const tryConnect = async () => {
         try {
             logger_1.default.info('📡 Testing connection to Telegram...');
@@ -446,7 +633,7 @@ async function startBot() {
         logger_1.default.info('📡 Attempting to launch bot...');
         try {
             await exports.bot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => { });
-            logger_1.default.info('✨ Bitnova Africa is LIVE!');
+            logger_1.default.info('✨ Velcro is LIVE!');
             await exports.bot.launch({ allowedUpdates: ['message', 'callback_query'] });
         }
         catch (err) {

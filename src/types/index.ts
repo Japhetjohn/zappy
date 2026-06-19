@@ -91,6 +91,12 @@ export interface TransactionResult {
     created_at: string;
 }
 
+export interface PointSettings {
+    perTx: number;
+    valuePct: number;
+    maxPerTx: number;
+}
+
 // Session data extension for Telegraf
 export interface SessionData {
     onramp?: {
@@ -100,6 +106,8 @@ export interface SessionData {
         quote?: Quote;
         walletAddress?: string;
         result?: TransactionResult;
+        pointsDiscountPct?: number;
+        pointsRedeemed?: number;
     };
     offramp?: {
         asset?: Asset;
@@ -108,5 +116,7 @@ export interface SessionData {
         quote?: Quote;
         beneficiary?: Beneficiary;
         result?: TransactionResult;
+        pointsDiscountPct?: number;
+        pointsRedeemed?: number;
     };
 }

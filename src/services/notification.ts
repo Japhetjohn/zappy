@@ -45,7 +45,7 @@ No action needed. Your funds are safe. ✅
 Ref: <code>${reference}</code>
 ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
                     break;
 
@@ -63,7 +63,7 @@ No action needed. Sit tight! 🚀
 Ref: <code>${reference}</code>
 ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
                     break;
 
@@ -80,7 +80,7 @@ This usually takes less than 2 minutes. ⏳
 
 Ref: <code>${reference}</code>
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
                     break;
 
@@ -93,6 +93,22 @@ Ref: <code>${reference}</code>
                         const currencySymbol = destCurrency === 'NGN' ? '₦' : '$';
                         const txType = extraData?.type || '';
 
+                        let pointsMsg = '';
+                        try {
+                            const { storageService } = require('../services/storage');
+                            const txDetail = storageService.getTransactionDetails(reference);
+                            if (txDetail) {
+                                if (txDetail.points_redeemed > 0) {
+                                    pointsMsg += `\n🎁 You used <b>${txDetail.points_redeemed} points</b> for a bonus on this transaction.`;
+                                }
+                                if (txDetail.points_earned > 0) {
+                                    pointsMsg += `\n⭐ You earned <b>${txDetail.points_earned} point${txDetail.points_earned === 1 ? '' : 's'}</b>! Total balance: <b>${txDetail.user_points || 0}</b>.`;
+                                }
+                            }
+                        } catch (e) {
+                            // Ignore points lookup errors
+                        }
+
                         if (txType === 'OFFRAMP') {
                             // Sold crypto → Got cash
                             notifyMsg = `
@@ -101,13 +117,14 @@ Ref: <code>${reference}</code>
 <b>${amount} ${assetName}</b> has been sold successfully.
 ${rate ? `📊 Rate: ${currencySymbol}${Number(rate).toLocaleString()}` : ''}
 ${destAmount ? `\n💰 <b>${currencySymbol}${Number(destAmount).toLocaleString()}</b> has been sent to your bank account.` : ''}
+${pointsMsg}
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
 Type <b>Menu</b> to continue 🚀
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
                         } else {
                             // Bought crypto → Got USDT
@@ -116,6 +133,7 @@ Type <b>Menu</b> to continue 🚀
 
 Your purchase of <b>${amount} ${assetName}</b> is complete!
 ${rate ? `📊 Rate: ₦${Number(rate).toLocaleString()}` : ''}
+${pointsMsg}
 
 Crypto has been sent to your wallet. 🎉
 
@@ -123,7 +141,7 @@ Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>\n` : ''}
 Type <b>Menu</b> to continue 🚀
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
                         }
                     }
@@ -144,7 +162,7 @@ Need help? Contact our support team.
 
 Type <b>Menu</b> to try again 🔄
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
                     break;
 
@@ -161,7 +179,7 @@ No funds were charged. You can start a new transaction anytime!
 
 Type <b>Menu</b> to start fresh 🔄
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
                     break;
 
@@ -178,7 +196,7 @@ ${message ? `\n💬 <b>Reason:</b> ${message}` : ''}
 No funds were charged.
 Type <b>Menu</b> to start a new transaction 🔄
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
                     break;
 
@@ -193,7 +211,7 @@ Type <b>Menu</b> to start a new transaction 🔄
 ${message ? `💬 ${message}` : ''}
 ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
 
-<i>Powered by Velcro</i> ⚡️
+<i>powered by usevelcro.com</i>
 `;
             }
 

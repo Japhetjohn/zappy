@@ -6,11 +6,15 @@ export const MAIN_KEYBOARD = Markup.inlineKeyboard([
         Markup.button.callback('💸 Sell Crypto', 'action_offramp')
     ],
     [
-        Markup.button.callback('📂 Saved Accounts', 'action_beneficiaries'),
-        Markup.button.callback('📊 Rates', 'action_rates'),
-        Markup.button.callback('📜 History', 'action_history')
+        Markup.button.callback('🎁 My Points', 'action_points'),
+        Markup.button.callback('👥 My Referrals', 'action_referrals')
     ],
     [
+        Markup.button.callback('📂 Saved Accounts', 'action_beneficiaries'),
+        Markup.button.callback('📊 Rates', 'action_rates')
+    ],
+    [
+        Markup.button.callback('📜 History', 'action_history'),
         Markup.button.callback('❓ Help & Info', 'action_help')
     ]
 ]);

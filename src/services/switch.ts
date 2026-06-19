@@ -2,6 +2,12 @@ import axios, { AxiosInstance } from 'axios';
 import { config } from '../config';
 import { Asset, Institution, Quote } from '../types';
 
+function computeEffectiveFee(pointDiscountPct?: number): number {
+    const baseFee = config.developerFee;
+    if (!pointDiscountPct || pointDiscountPct <= 0) return baseFee;
+    return Math.max(0, baseFee - pointDiscountPct);
+}
+
 export class SwitchService {
     private api: AxiosInstance;
     private useMock: boolean = false;
@@ -96,7 +102,7 @@ export class SwitchService {
         }
     }
 
-    async getOnrampQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number): Promise<Quote> {
+    async getOnrampQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number, pointDiscountPct?: number): Promise<Quote> {
         try {
             const payload = {
                 amount,
@@ -104,7 +110,7 @@ export class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: developerFee !== undefined ? developerFee : config.developerFee,
+                developer_fee: developerFee !== undefined ? developerFee : computeEffectiveFee(pointDiscountPct),
             };
             console.log('--- DEBUG: ONRAMP QUOTE REQUEST ---');
             console.log(JSON.stringify(payload, null, 2));
@@ -132,6 +138,7 @@ export class SwitchService {
         senderBankCode?: string;
         senderAccountNumber?: string;
         developerFee?: number;
+        pointDiscountPct?: number;
     }): Promise<any> {
         try {
             // Sanitize holder name... (Remove emojis/symbols but keep basic name chars)
@@ -156,9 +163,9 @@ export class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: data.developerFee !== undefined ? data.developerFee : config.developerFee,
+                developer_fee: data.developerFee !== undefined ? data.developerFee : computeEffectiveFee(data.pointDiscountPct),
                 // Add developer wallet for fee collection (Solana/Single-Wallet mode)
-                developer_wallet: config.developerWallet || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV',
+                developer_wallet: config.developerWallet,
             };
 
             // Pass sender details if available to help with reconciliation/VA generation
@@ -182,7 +189,7 @@ export class SwitchService {
         }
     }
 
-    async getOfframpQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number): Promise<Quote> {
+    async getOfframpQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number, pointDiscountPct?: number): Promise<Quote> {
         try {
             const response = await this.api.post('/offramp/quote', {
                 amount,
@@ -190,7 +197,7 @@ export class SwitchService {
                 asset,
                 currency,
                 channel: 'BANK',
-                developer_fee: developerFee !== undefined ? developerFee : config.developerFee,
+                developer_fee: developerFee !== undefined ? developerFee : computeEffectiveFee(pointDiscountPct),
             });
             if (response.data.success) {
                 return response.data.data;
@@ -213,6 +220,7 @@ export class SwitchService {
         };
         currency?: string;
         developerFee?: number;
+        pointDiscountPct?: number;
     }): Promise<any> {
         try {
             const response = await this.api.post('/offramp/initiate', {
@@ -228,7 +236,7 @@ export class SwitchService {
                 },
                 channel: 'BANK',
                 reason: 'REMITTANCES',
-                developer_fee: data.developerFee !== undefined ? data.developerFee : config.developerFee,
+                developer_fee: data.developerFee !== undefined ? data.developerFee : computeEffectiveFee(data.pointDiscountPct),
                 developer_wallet: config.developerWallet
             });
             if (response.data.success) {

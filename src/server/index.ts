@@ -238,12 +238,65 @@ app.get('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
     }
 });
 
+const ALLOWED_SETTINGS_KEYS = [
+    'platform_fee',
+    'points_per_tx',
+    'points_value_pct',
+    'max_points_per_tx'
+];
+
 app.post('/api/admin/settings', adminAuth, (req: Request, res: Response) => {
     try {
         const { key, value } = req.body;
         if (!key || value === undefined) throw new Error('Key and value required');
+        if (!ALLOWED_SETTINGS_KEYS.includes(key)) {
+            return res.status(400).json({ error: 'Setting key not allowed', allowed: ALLOWED_SETTINGS_KEYS });
+        }
+
+        // Validate platform_fee is a reasonable percentage
+        if (key === 'platform_fee') {
+            const fee = parseFloat(value);
+            if (isNaN(fee) || fee < 0 || fee > 50) {
+                return res.status(400).json({ error: 'platform_fee must be between 0 and 50' });
+            }
+        }
+
         storageService.updateSetting(key, value.toString());
-        res.json({ success: true });
+        return res.json({ success: true });
+    } catch (e: any) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/points', adminAuth, (req: Request, res: Response) => {
+    try {
+        const stats = storageService.getPointStats();
+        const settings = storageService.getPointSettings();
+        res.json({ ...stats, settings });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/users/:id/points', adminAuth, (req: Request, res: Response) => {
+    try {
+        const userId = parseInt(req.params.id as string);
+        const user = storageService.getUserDetailStats(userId);
+        res.json({
+            userId,
+            currentBalance: user.user?.points || 0,
+            earned: user.stats.pointsEarned,
+            redeemed: user.stats.pointsRedeemed
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/referrals', adminAuth, (req: Request, res: Response) => {
+    try {
+        const stats = storageService.getReferralStats();
+        res.json(stats);
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

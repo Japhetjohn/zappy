@@ -43,7 +43,7 @@ dotenv.config({ path: path_1.default.resolve(__dirname, '../.env') });
 const PORT = process.env.PORT || 3000;
 const HEALTH_URL = `http://localhost:${PORT}/health`;
 const INTERVAL = 60000;
-console.log(`Starting Bitnova Watcher... Monitoring ${HEALTH_URL}`);
+console.log(`Starting Velcro Watcher... Monitoring ${HEALTH_URL}`);
 let failureCount = 0;
 const checkHealth = async () => {
     try {
