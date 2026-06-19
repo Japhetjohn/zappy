@@ -178,7 +178,7 @@ Choose your local currency:
 
 How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
 
-<i>Example: 100</i>
+<i>Example: 100 (Max: $10,000)</i>
 `;
         await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('⬅️ Back', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]

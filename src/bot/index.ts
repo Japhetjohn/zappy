@@ -235,7 +235,7 @@ bot.on('text', async (ctx, next) => {
     if ((ctx.session as any).awaiting_offramp_hash) {
         const hash = ctx.message.text.trim();
         const reference = (ctx.session as any).pending_offramp_ref;
-        
+
         delete (ctx.session as any).awaiting_offramp_hash;
         delete (ctx.session as any).pending_offramp_ref;
 
@@ -245,17 +245,17 @@ bot.on('text', async (ctx, next) => {
 
         try {
             const statusMsg = await ctx.replyWithHTML('⏳ <b>Processing your payment...</b>');
-            
+
             await switchService.confirmDeposit(reference, hash);
-            
+
             // Artificial delay for better UX
             setTimeout(async () => {
                 return safeEdit(ctx, `
-✅ <b>Payment Confirmed!</b>
+⏳ <b>Verifying Transaction...</b>
 
 We've notified the system of your transfer (Ref: <code>${hash}</code>).
 
-The system is now verifying your payment. Your funds will be sent automatically once confirmed. 🚀
+The system is now verifying your payment. You will receive a confirmation message once it is completed. 🚀
 `, Markup.inlineKeyboard([[Markup.button.callback('🏠 Main Menu', 'action_menu')]]));
             }, 1500);
 
@@ -359,7 +359,7 @@ bot.action(/^action_confirm_payment:?(.+)?$/, async (ctx) => {
         (ctx.session as any).pending_offramp_ref = reference;
 
         return ctx.replyWithHTML(`
-✨ <b>Payment Acknowledged</b>
+⏳ <b>Checking payment...</b>
 
 Great! To finalize your sale, please provide your <b>Transaction Hash (TXID)</b> for the crypto transfer.
 
@@ -395,7 +395,7 @@ bot.action('action_withdraw_referrals', async (ctx) => {
 bot.action('action_share_menu', async (ctx) => {
     if (!ctx.from) return;
     if (ctx.callbackQuery) await ctx.answerCbQuery('Opening share options...').catch(() => { });
-    
+
     try {
         const stats = storageService.getUserReferralStats(ctx.from.id);
         const username = await getBotUsername();
@@ -432,11 +432,11 @@ Choose a platform to share your link:
 bot.action('action_copy_link', async (ctx) => {
     if (!ctx.from) return;
     if (ctx.callbackQuery) await ctx.answerCbQuery('Link sent below! 👇').catch(() => { });
-    
+
     const stats = storageService.getUserReferralStats(ctx.from.id);
     const username = await getBotUsername();
     const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
-    
+
     await ctx.replyWithHTML(`🔗 <b>Your Referral Link (tap to copy):</b>\n\n<code>${link}</code>`);
 });
 
