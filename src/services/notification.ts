@@ -202,7 +202,7 @@ ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
                 reply_markup: {
                     inline_keyboard: [
                         ...(explorerLink ? [[{ text: '🔍 View on Explorer', url: explorerLink }]] : []),
-                        [{ text: '📞 Contact Support', url: 'https://t.me/usevelcro' }],
+                        [{ text: '📞 Contact Support', url: 'https://t.me/usevelcro_chat' }],
                         [{ text: '🏠 Main Menu', callback_data: 'action_menu' }]
                     ]
                 }

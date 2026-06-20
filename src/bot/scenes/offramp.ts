@@ -562,7 +562,7 @@ Network: <b>${ctx.wizard.state.data.asset.blockchain.name}</b>
 `;
             const buttons = [
                 [Markup.button.callback('✅ I Have Paid', `action_confirm_payment:${result.reference}`)],
-                [Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro')]
+                [Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro_chat')]
             ];
 
             await ctx.replyWithHTML(msg, Markup.inlineKeyboard(buttons));

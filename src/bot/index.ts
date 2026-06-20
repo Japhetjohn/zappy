@@ -499,7 +499,7 @@ bot.action(/^status_(.+)$/, async (ctx) => {
 
         await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
-            [Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro')],
+            [Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro_chat')],
             [Markup.button.callback('🔁 Redo Transaction', redoAction)],
             [Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));
@@ -691,7 +691,7 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 • Get cash in your bank account instantly! 💸
 
 <b>Need human help?</b>
-Just join our community group at <a href="https://t.me/usevelcro">@usevelcro</a> and our team will sort you out! 🌍🤝
+Just join our community group at <a href="https://t.me/usevelcro_chat">@usevelcro_chat</a> and our team will sort you out! 🌍🤝
 `;
     await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
         [Markup.button.callback('🏠 Back to Menu', 'action_menu')]

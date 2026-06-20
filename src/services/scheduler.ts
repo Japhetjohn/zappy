@@ -22,7 +22,7 @@ export const startScheduler = () => {
         try {
             // Find PENDING transactions
             const rows = db.prepare(`
-                SELECT reference, status, created_at, type, user_id, asset, amount FROM transactions 
+                SELECT reference, status, created_at, type, user_id, asset, amount, wallet_address FROM transactions 
                 WHERE status IN ('PENDING', 'AWAITING_DEPOSIT', 'PROCESSING', 'VERIFIED', 'SCHEDULED')
                 AND created_at < datetime('now', '-1 minutes')
                 AND created_at > datetime('now', '-24 hours')
@@ -51,7 +51,11 @@ export const startScheduler = () => {
                                         logger.info(`✅ Auto-confirmed ${tx.reference}`);
 
                                         // Notify user about detection
-                                        await notificationService.sendUpdate(tx.user_id, tx.reference, newStatus, tx.asset, tx.amount, hash);
+                                        const extraData = {
+                                            walletAddress: status.destination?.address || status.beneficiary?.account_number || tx.wallet_address,
+                                            type: status.type || tx.type
+                                        };
+                                        await notificationService.sendUpdate(tx.user_id, tx.reference, newStatus, tx.asset, tx.amount, hash, undefined, extraData);
                                     }
                                 }
                             }
@@ -70,7 +74,8 @@ export const startScheduler = () => {
                                     destinationAmount: status.destination?.amount || status.destinationAmount,
                                     destinationCurrency: status.destination?.currency || status.destinationCurrency || 'NGN',
                                     rate: status.rate || status.exchangeRate,
-                                    type: status.type || tx.type
+                                    type: status.type || tx.type,
+                                    walletAddress: status.destination?.address || status.beneficiary?.account_number || tx.wallet_address
                                 };
 
                                 await notificationService.sendUpdate(
