@@ -361,6 +361,104 @@ The amount has been refunded back to your referral balance.
     }
 });
 
+// --- Admin Broadcast Messaging ---
+interface BroadcastJob {
+    id: string;
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    total: number;
+    sent: number;
+    failed: number;
+    errors: string[];
+    createdAt: Date;
+    finishedAt?: Date;
+}
+
+const broadcastJobs = new Map<string, BroadcastJob>();
+
+function generateBroadcastJobId(): string {
+    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+}
+
+app.post('/api/admin/broadcast', adminAuth, async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { message, parseMode } = req.body;
+
+        if (!message || typeof message !== 'string' || message.trim().length === 0) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
+        const trimmedMessage = message.trim();
+        if (trimmedMessage.length > 4096) {
+            return res.status(400).json({ error: 'Message exceeds Telegram max length of 4096 characters' });
+        }
+
+        const allowedParseModes = ['HTML', 'Markdown', 'MarkdownV2', 'none'];
+        const mode = parseMode && typeof parseMode === 'string' ? parseMode.trim() : 'none';
+        if (!allowedParseModes.includes(mode)) {
+            return res.status(400).json({ error: 'Invalid parseMode. Use HTML, Markdown, MarkdownV2, or none' });
+        }
+
+        const userRows = storageService.getAllUserIds();
+        const userIds = userRows.map((u: any) => u.id);
+
+        const job: BroadcastJob = {
+            id: generateBroadcastJobId(),
+            status: 'running',
+            total: userIds.length,
+            sent: 0,
+            failed: 0,
+            errors: [],
+            createdAt: new Date(),
+        };
+        broadcastJobs.set(job.id, job);
+
+        // Start sending in the background so the HTTP response returns immediately
+        (async () => {
+            for (const userId of userIds) {
+                try {
+                    const extra: any = {};
+                    if (mode !== 'none') {
+                        extra.parse_mode = mode;
+                    }
+                    await bot.telegram.sendMessage(userId, trimmedMessage, Object.keys(extra).length > 0 ? extra : undefined);
+                    job.sent++;
+                } catch (e: any) {
+                    job.failed++;
+                    const errMsg = e.message || 'Unknown error';
+                    if (job.errors.length < 30) {
+                        job.errors.push(`User ${userId}: ${errMsg}`);
+                    }
+                    logger.warn(`Broadcast failed for user ${userId}: ${errMsg}`);
+                }
+
+                // Throttle to stay within Telegram limits (~16 msg/sec)
+                await new Promise(resolve => setTimeout(resolve, 60));
+            }
+
+            job.status = 'completed';
+            job.finishedAt = new Date();
+            logger.info(`📢 Broadcast job ${job.id} completed: ${job.sent} sent, ${job.failed} failed`);
+        })();
+
+        return res.json({
+            success: true,
+            jobId: job.id,
+            total: job.total,
+            status: job.status,
+            message: `Broadcast queued for ${job.total} users`,
+        });
+    } catch (e: any) {
+        logger.error(`Broadcast endpoint error: ${e.message}`);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/broadcast/:id', adminAuth, (req: Request, res: Response): any => {
+    const job = broadcastJobs.get(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Broadcast job not found' });
+    return res.json(job);
+});
+
 // Serve Admin Dashboard Static Files
 import path from 'path';
 const publicPath = path.resolve(process.cwd(), 'public');

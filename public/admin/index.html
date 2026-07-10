@@ -613,6 +613,9 @@
                 <li onclick="switchSection('referrals')" id="nav-referrals">
                     <i data-lucide="share-2"></i> Referrals
                 </li>
+                <li onclick="switchSection('broadcast')" id="nav-broadcast">
+                    <i data-lucide="megaphone"></i> Broadcast
+                </li>
                 <li onclick="switchSection('settings')" id="nav-settings">
                     <i data-lucide="settings"></i> Settings
                 </li>
@@ -871,6 +874,36 @@
                 </table>
             </div>
         </div>
+        <div id="section-broadcast" class="view-content">
+            <header>
+                <div class="header-title">
+                    <h1>Broadcast Message</h1>
+                    <p>Send announcements, updates, or check-ins to every user via the bot.</p>
+                </div>
+            </header>
+
+            <div class="table-card" style="max-width: 700px;">
+                <label
+                    style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; display: block;">Message</label>
+                <textarea id="broadcast-message" rows="8" placeholder="Type your announcement here..."
+                    style="width: 100%; padding: 16px; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; margin-bottom: 20px; outline: none; resize: vertical; font-family: 'Outfit', sans-serif;"></textarea>
+
+                <label
+                    style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; display: block;">Formatting</label>
+                <select id="broadcast-mode"
+                    style="width: 100%; padding: 16px; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; margin-bottom: 20px; outline: none; background: white;">
+                    <option value="none">Plain text</option>
+                    <option value="HTML">HTML</option>
+                    <option value="Markdown">Markdown</option>
+                    <option value="MarkdownV2">MarkdownV2</option>
+                </select>
+
+                <button id="btn-send-broadcast" class="btn-primary" onclick="sendBroadcast()">Send to All Users</button>
+
+                <div id="broadcast-status" style="margin-top: 20px; font-size: 14px; line-height: 1.6;"></div>
+            </div>
+        </div>
+
         <div id="section-settings" class="view-content">
             <header>
                 <div class="header-title">
@@ -1508,6 +1541,80 @@
                 btn.style.opacity = '1';
                 setTimeout(() => { btn.innerHTML = origText; }, 5000);
             }
+        }
+
+        async function sendBroadcast() {
+            const messageEl = document.getElementById('broadcast-message');
+            const modeEl = document.getElementById('broadcast-mode');
+            const btn = document.getElementById('btn-send-broadcast');
+            const statusEl = document.getElementById('broadcast-status');
+
+            const message = messageEl.value.trim();
+            if (!message) {
+                statusEl.innerHTML = '<span style="color: var(--failed);">⚠️ Please type a message first.</span>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+            const origText = btn.innerText;
+            btn.innerText = 'Queueing...';
+            statusEl.innerHTML = '<span style="color: var(--text-secondary);">⏳ Sending broadcast...</span>';
+
+            try {
+                const res = await fetch('/api/admin/broadcast', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${adminKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message, parseMode: modeEl.value })
+                });
+
+                const json = await res.json();
+                if (res.ok && json.success) {
+                    statusEl.innerHTML = `✅ <b>Broadcast queued</b> for ${json.total} users.<br><span style="color: var(--text-secondary);">Job ID: <code>${json.jobId}</code></span>`;
+                    pollBroadcast(json.jobId);
+                } else {
+                    statusEl.innerHTML = `<span style="color: var(--failed);">❌ Failed: ${json.error || 'Unknown error'}</span>`;
+                }
+            } catch (e) {
+                statusEl.innerHTML = `<span style="color: var(--failed);">❌ Error: ${e.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.innerText = origText;
+            }
+        }
+
+        async function pollBroadcast(jobId) {
+            const statusEl = document.getElementById('broadcast-status');
+            const maxAttempts = 60;
+            let attempts = 0;
+
+            const interval = setInterval(async () => {
+                attempts++;
+                try {
+                    const res = await fetch(`/api/admin/broadcast/${jobId}`, {
+                        headers: { 'Authorization': `Bearer ${adminKey}` }
+                    });
+                    if (!res.ok) return;
+                    const job = await res.json();
+
+                    const percent = job.total > 0 ? Math.round(((job.sent + job.failed) / job.total) * 100) : 0;
+                    statusEl.innerHTML = `
+                        📢 <b>Broadcast in progress:</b> ${percent}%<br>
+                        ✅ Sent: <b>${job.sent}</b> &nbsp;|&nbsp; ❌ Failed: <b>${job.failed}</b> &nbsp;|&nbsp; 👥 Total: <b>${job.total}</b>
+                        ${job.status === 'completed' ? '<br><span style="color: var(--success);">🎉 Broadcast completed!</span>' : ''}
+                    `;
+
+                    if (job.status === 'completed' || attempts >= maxAttempts) {
+                        clearInterval(interval);
+                    }
+                } catch (e) {
+                    // ignore polling errors
+                }
+            }, 3000);
         }
 
         async function saveSettings() {

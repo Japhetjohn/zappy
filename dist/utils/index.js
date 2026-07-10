@@ -25,17 +25,13 @@ const formatAmount = (num) => {
 exports.formatAmount = formatAmount;
 const safeEdit = async (ctx, text, extra) => {
     try {
+        await ctx.replyWithHTML(text, extra);
         if (ctx.callbackQuery) {
-            await ctx.editMessageText(text, { parse_mode: 'HTML', ...extra });
-        }
-        else {
-            await ctx.replyWithHTML(text, extra);
+            await ctx.answerCbQuery().catch(() => { });
         }
     }
     catch (error) {
-        if (error.message.includes('message is not modified'))
-            return;
-        console.error('SafeEdit failed:', error.message);
+        console.error('SafeEdit fallback failed:', error.message);
         await ctx.replyWithMarkdown(text, extra).catch(() => { });
     }
 };

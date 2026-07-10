@@ -357,6 +357,10 @@ export const storageService = {
     return db.prepare('SELECT * FROM users WHERE referral_code = ?').get(code) as any;
   },
 
+  getAllUserIds: () => {
+    return db.prepare('SELECT id FROM users ORDER BY id').all() as { id: number }[];
+  },
+
   getUserReferralStats: (userId: number) => {
     let user = db.prepare('SELECT referral_code, referral_count, referral_balance, total_referral_earnings FROM users WHERE id = ?').get(userId) as any;
 

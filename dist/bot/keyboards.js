@@ -8,7 +8,6 @@ exports.MAIN_KEYBOARD = telegraf_1.Markup.inlineKeyboard([
         telegraf_1.Markup.button.callback('💸 Sell Crypto', 'action_offramp')
     ],
     [
-        telegraf_1.Markup.button.callback('🎁 My Points', 'action_points'),
         telegraf_1.Markup.button.callback('👥 My Referrals', 'action_referrals')
     ],
     [

@@ -71,21 +71,6 @@ Ref: <code>${reference}</code>
                         const rate = extraData === null || extraData === void 0 ? void 0 : extraData.rate;
                         const currencySymbol = destCurrency === 'NGN' ? '₦' : '$';
                         const txType = (extraData === null || extraData === void 0 ? void 0 : extraData.type) || '';
-                        let pointsMsg = '';
-                        try {
-                            const { storageService } = require('../services/storage');
-                            const txDetail = storageService.getTransactionDetails(reference);
-                            if (txDetail) {
-                                if (txDetail.points_redeemed > 0) {
-                                    pointsMsg += `\n🎁 You used <b>${txDetail.points_redeemed} points</b> for a bonus on this transaction.`;
-                                }
-                                if (txDetail.points_earned > 0) {
-                                    pointsMsg += `\n⭐ You earned <b>${txDetail.points_earned} point${txDetail.points_earned === 1 ? '' : 's'}</b>! Total balance: <b>${txDetail.user_points || 0}</b>.`;
-                                }
-                            }
-                        }
-                        catch (e) {
-                        }
                         if (txType === 'OFFRAMP') {
                             notifyMsg = `
 ✅ <b>Transaction Complete!</b>
@@ -93,12 +78,12 @@ Ref: <code>${reference}</code>
 <b>${amount} ${assetName}</b> has been sold successfully.
 ${rate ? `📊 Rate: ${currencySymbol}${Number(rate).toLocaleString()}` : ''}
 ${destAmount ? `\n💰 <b>${currencySymbol}${Number(destAmount).toLocaleString()}</b> has been sent to your bank account.` : ''}
-${pointsMsg}
+
+🏦 <b>Bank Account:</b>
+<code>${(extraData === null || extraData === void 0 ? void 0 : extraData.walletAddress) || 'N/A'}</code>
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
-
-Type <b>Menu</b> to continue 🚀
 
 <i>powered by usevelcro.com</i>
 `;
@@ -107,15 +92,16 @@ Type <b>Menu</b> to continue 🚀
                             notifyMsg = `
 ✅ <b>Transaction Complete!</b>
 
-Your purchase of <b>${amount} ${assetName}</b> is complete!
+Your purchase of <b>${(extraData === null || extraData === void 0 ? void 0 : extraData.destinationAmount) ? extraData.destinationAmount : amount} ${assetName}</b> is complete!
 ${rate ? `📊 Rate: ₦${Number(rate).toLocaleString()}` : ''}
-${pointsMsg}
+
+🚀 <b>Destination Wallet:</b>
+<code>${(extraData === null || extraData === void 0 ? void 0 : extraData.walletAddress) || 'N/A'}</code>
 
 Crypto has been sent to your wallet. 🎉
 
 Ref: <code>${reference}</code>
 ${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>\n` : ''}
-Type <b>Menu</b> to continue 🚀
 
 <i>powered by usevelcro.com</i>
 `;
@@ -135,8 +121,6 @@ ${message ? `\n💬 <b>Reason:</b> ${message}` : ''}
 If funds were deducted, they will be refunded automatically.
 Need help? Contact our support team.
 
-Type <b>Menu</b> to try again 🔄
-
 <i>powered by usevelcro.com</i>
 `;
                     break;
@@ -150,8 +134,6 @@ Your transaction expired before payment was received.
 📋 <b>Ref:</b> <code>${reference}</code>
 
 No funds were charged. You can start a new transaction anytime!
-
-Type <b>Menu</b> to start fresh 🔄
 
 <i>powered by usevelcro.com</i>
 `;
@@ -167,7 +149,6 @@ Your transaction has been cancelled.
 ${message ? `\n💬 <b>Reason:</b> ${message}` : ''}
 
 No funds were charged.
-Type <b>Menu</b> to start a new transaction 🔄
 
 <i>powered by usevelcro.com</i>
 `;
@@ -191,7 +172,7 @@ ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
                 reply_markup: {
                     inline_keyboard: [
                         ...(explorerLink ? [[{ text: '🔍 View on Explorer', url: explorerLink }]] : []),
-                        [{ text: '📞 Contact Support', url: 'https://t.me/usevelcro' }],
+                        [{ text: '📞 Contact Support', url: 'https://t.me/usevelcro_chat' }],
                         [{ text: '🏠 Main Menu', callback_data: 'action_menu' }]
                     ]
                 }
@@ -201,6 +182,29 @@ ${explorerLink ? `\n🔗 <a href="${explorerLink}">View on Explorer</a>` : ''}
         }
         catch (error) {
             logger_1.default.error(`Failed to send notification to ${userId}: ${error.message}`);
+        }
+    }
+    async sendReferralCreditNotification(userId, amount) {
+        try {
+            const notifyMsg = `
+🎁 <b>Referral Bonus Received!</b>
+
+Your referral just completed a transaction, and you've earned a portion of the volume!
+
+💰 <b>Amount Credited:</b> $${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+
+Keep sharing your referral link to earn more! 🚀
+            `;
+            const extra = {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [[{ text: '👥 View Referrals', callback_data: 'action_referrals' }]]
+                }
+            };
+            await bot_1.bot.telegram.sendMessage(userId, notifyMsg, extra);
+        }
+        catch (e) {
+            logger_1.default.error(`Failed to send referral notification to ${userId}: ${e.message}`);
         }
     }
 }

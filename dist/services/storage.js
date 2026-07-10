@@ -27,7 +27,6 @@ db.exec(`
     referral_count INTEGER DEFAULT 0,
     total_volume REAL DEFAULT 0,
     tx_count INTEGER DEFAULT 0,
-    points INTEGER DEFAULT 0,
     last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -54,18 +53,34 @@ db.exec(`
     currency TEXT DEFAULT 'USD',
     status TEXT,
     hash TEXT,
-    points_earned INTEGER DEFAULT 0,
-    points_redeemed INTEGER DEFAULT 0,
-    points_discount_pct REAL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
   CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_ref ON transactions(reference);
   CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
+
+  CREATE TABLE IF NOT EXISTS withdrawals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    amount REAL,
+    wallet_address TEXT,
+    chain TEXT,
+    status TEXT DEFAULT 'PENDING',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 try {
-    db.prepare('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0').run();
+    db.prepare('ALTER TABLE transactions ADD COLUMN wallet_address TEXT').run();
+}
+catch (e) { }
+try {
+    db.prepare('ALTER TABLE users ADD COLUMN referral_balance REAL DEFAULT 0').run();
+}
+catch (e) { }
+try {
+    db.prepare('ALTER TABLE users ADD COLUMN total_referral_earnings REAL DEFAULT 0').run();
 }
 catch (e) { }
 try {
@@ -88,18 +103,6 @@ try {
     db.prepare('ALTER TABLE transactions ADD COLUMN hash TEXT').run();
 }
 catch (e) { }
-try {
-    db.prepare('ALTER TABLE transactions ADD COLUMN points_earned INTEGER DEFAULT 0').run();
-}
-catch (e) { }
-try {
-    db.prepare('ALTER TABLE transactions ADD COLUMN points_redeemed INTEGER DEFAULT 0').run();
-}
-catch (e) { }
-try {
-    db.prepare('ALTER TABLE transactions ADD COLUMN points_discount_pct REAL DEFAULT 0').run();
-}
-catch (e) { }
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
@@ -108,9 +111,6 @@ db.exec(`
 `);
 const defaultSettings = [
     { key: 'platform_fee', value: '1' },
-    { key: 'points_per_tx', value: '1' },
-    { key: 'points_value_pct', value: '0.1' },
-    { key: 'max_points_per_tx', value: '5' },
 ];
 for (const setting of defaultSettings) {
     try {
@@ -204,30 +204,12 @@ exports.storageService = {
     },
     addTransaction: (data) => {
         const stmt = db.prepare(`
-      INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status, points_redeemed, points_discount_pct)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status, wallet_address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        const result = stmt.run(data.userId, data.reference, data.type, data.asset, data.amount, data.currency || 'USD', data.status || 'PENDING', data.pointsRedeemed || 0, data.pointsDiscountPct || 0);
+        const result = stmt.run(data.userId, data.reference, data.type, data.asset, data.amount, data.currency || 'USD', data.status || 'PENDING', data.walletAddress || null);
         db.prepare('UPDATE users SET tx_count = tx_count + 1, last_seen = CURRENT_TIMESTAMP WHERE id = ?').run(data.userId);
         return result;
-    },
-    addTransactionAndRedeemPoints: (data) => {
-        return db.transaction(() => {
-            const stmt = db.prepare(`
-        INSERT INTO transactions (user_id, reference, type, asset, amount, currency, status, points_redeemed, points_discount_pct)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-            const result = stmt.run(data.userId, data.reference, data.type, data.asset, data.amount, data.currency || 'USD', data.status || 'PENDING', data.pointsRedeemed || 0, data.pointsDiscountPct || 0);
-            db.prepare('UPDATE users SET tx_count = tx_count + 1, last_seen = CURRENT_TIMESTAMP WHERE id = ?').run(data.userId);
-            if (data.pointsRedeemed && data.pointsRedeemed > 0) {
-                const redeemResult = db.prepare('UPDATE users SET points = points - ? WHERE id = ? AND points >= ?')
-                    .run(data.pointsRedeemed, data.userId, data.pointsRedeemed);
-                if (redeemResult.changes === 0) {
-                    throw new Error(`Insufficient points balance to redeem ${data.pointsRedeemed} points`);
-                }
-            }
-            return result;
-        })();
     },
     updateTransactionStatus: (reference, status, hash) => {
         let sql = 'UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP';
@@ -241,18 +223,30 @@ exports.storageService = {
         const stmt = db.prepare(sql);
         const result = stmt.run(...params);
         if (status === 'COMPLETED') {
-            const tx = db.prepare('SELECT user_id, amount, currency, points_earned, type FROM transactions WHERE reference = ?').get(reference);
-            if (tx && tx.points_earned === 0) {
+            const tx = db.prepare('SELECT user_id, amount, currency, type FROM transactions WHERE reference = ?').get(reference);
+            if (tx) {
                 let volumeUSD = tx.amount;
                 if (tx.currency === 'NGN') {
                     volumeUSD = tx.amount / 1600;
                 }
-                const pointsPerTx = exports.storageService.getPointSettings().perTx;
                 db.transaction(() => {
-                    db.prepare('UPDATE users SET total_volume = total_volume + ?, points = points + ? WHERE id = ?')
-                        .run(volumeUSD, pointsPerTx, tx.user_id);
-                    db.prepare('UPDATE transactions SET points_earned = ? WHERE reference = ?')
-                        .run(pointsPerTx, reference);
+                    db.prepare('UPDATE users SET total_volume = total_volume + ? WHERE id = ?')
+                        .run(volumeUSD, tx.user_id);
+                    const user = db.prepare('SELECT referred_by FROM users WHERE id = ?').get(tx.user_id);
+                    if (user && user.referred_by) {
+                        const rewardAmountUSD = volumeUSD * 0.001;
+                        if (rewardAmountUSD > 0) {
+                            db.prepare('UPDATE users SET referral_balance = referral_balance + ?, total_referral_earnings = total_referral_earnings + ? WHERE id = ?')
+                                .run(rewardAmountUSD, rewardAmountUSD, user.referred_by);
+                            setTimeout(() => {
+                                try {
+                                    const { notificationService } = require('./notification');
+                                    notificationService.sendReferralCreditNotification(user.referred_by, rewardAmountUSD);
+                                }
+                                catch (e) { }
+                            }, 100);
+                        }
+                    }
                 })();
             }
         }
@@ -285,27 +279,38 @@ exports.storageService = {
             return false;
         }
     },
-    getUserPoints: (userId) => {
-        const row = db.prepare('SELECT points FROM users WHERE id = ?').get(userId);
-        return row ? row.points || 0 : 0;
-    },
-    addPoints: (userId, amount) => {
-        db.prepare('UPDATE users SET points = points + ? WHERE id = ?').run(amount, userId);
-    },
-    redeemPoints: (userId, amount) => {
-        const result = db.prepare('UPDATE users SET points = points - ? WHERE id = ? AND points >= ?').run(amount, userId, amount);
-        return result.changes > 0;
-    },
     getUserByReferralCode: (code) => {
         return db.prepare('SELECT * FROM users WHERE referral_code = ?').get(code);
     },
+    getAllUserIds: () => {
+        return db.prepare('SELECT id FROM users ORDER BY id').all();
+    },
     getUserReferralStats: (userId) => {
-        const user = db.prepare('SELECT referral_code, referral_count FROM users WHERE id = ?').get(userId);
+        let user = db.prepare('SELECT referral_code, referral_count, referral_balance, total_referral_earnings FROM users WHERE id = ?').get(userId);
+        if (!user) {
+            return { code: null, referralCount: 0, balance: 0, totalEarned: 0 };
+        }
+        if (!user.referral_code) {
+            const code = generateUniqueReferralCode(userId);
+            db.prepare('UPDATE users SET referral_code = ? WHERE id = ?').run(code, userId);
+            user.referral_code = code;
+        }
         return {
-            code: (user === null || user === void 0 ? void 0 : user.referral_code) || null,
+            code: user.referral_code,
             referralCount: (user === null || user === void 0 ? void 0 : user.referral_count) || 0,
-            referralPointsEarned: ((user === null || user === void 0 ? void 0 : user.referral_count) || 0) * 5,
+            balance: (user === null || user === void 0 ? void 0 : user.referral_balance) || 0,
+            totalEarned: (user === null || user === void 0 ? void 0 : user.total_referral_earnings) || 0,
         };
+    },
+    requestWithdrawal: (userId, amount, address, chain) => {
+        return db.transaction(() => {
+            const user = db.prepare('SELECT referral_balance FROM users WHERE id = ?').get(userId);
+            if (!user || user.referral_balance < amount)
+                throw new Error('Insufficient referral balance');
+            db.prepare('UPDATE users SET referral_balance = referral_balance - ? WHERE id = ?').run(amount, userId);
+            const result = db.prepare('INSERT INTO withdrawals (user_id, amount, wallet_address, chain, status) VALUES (?, ?, ?, ?, ?)').run(userId, amount, address, chain, 'PENDING');
+            return result.lastInsertRowid;
+        })();
     },
     recordReferral: (referredUserId, referrerUserId) => {
         const referred = db.prepare('SELECT id, referred_by FROM users WHERE id = ?').get(referredUserId);
@@ -315,43 +320,13 @@ exports.storageService = {
             return false;
         return db.transaction(() => {
             db.prepare('UPDATE users SET referred_by = ? WHERE id = ?').run(referrerUserId, referredUserId);
-            const result = db.prepare('UPDATE users SET referral_count = referral_count + 1, points = points + 5 WHERE id = ?').run(referrerUserId);
+            const result = db.prepare('UPDATE users SET referral_count = referral_count + 1 WHERE id = ?').run(referrerUserId);
             return result.changes > 0;
         })();
     },
     getReferralStats: () => {
         const totalReferrals = db.prepare('SELECT COUNT(*) as count FROM users WHERE referred_by IS NOT NULL').get().count || 0;
-        const totalReferralPoints = totalReferrals * 5;
-        return { totalReferrals, totalReferralPoints };
-    },
-    getPointSettings: () => {
-        const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('points_per_tx', 'points_value_pct', 'max_points_per_tx')").all();
-        const settings = {};
-        rows.forEach(r => settings[r.key] = r.value);
-        return {
-            perTx: parseFloat(settings.points_per_tx) || 1,
-            valuePct: parseFloat(settings.points_value_pct) || 0.1,
-            maxPerTx: parseFloat(settings.max_points_per_tx) || 5,
-        };
-    },
-    updatePointSettings: (settings) => {
-        db.transaction(() => {
-            db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run('points_per_tx', settings.perTx.toString());
-            db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run('points_value_pct', settings.valuePct.toString());
-            db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run('max_points_per_tx', settings.maxPerTx.toString());
-        })();
-    },
-    getPointStats: () => {
-        const totalAwarded = db.prepare('SELECT SUM(points_earned) as sum FROM transactions').get().sum || 0;
-        const totalRedeemed = db.prepare('SELECT SUM(points_redeemed) as sum FROM transactions').get().sum || 0;
-        const usersWithPoints = db.prepare('SELECT COUNT(*) as count FROM users WHERE points > 0').get().count || 0;
-        const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count || 0;
-        return {
-            totalAwarded,
-            totalRedeemed,
-            usersWithPoints,
-            averagePoints: totalUsers > 0 ? (totalAwarded - totalRedeemed) / totalUsers : 0,
-        };
+        return { totalReferrals };
     },
     getStats: (rate = 1600) => {
         const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
@@ -365,7 +340,6 @@ exports.storageService = {
         const feePercent = feeRow ? parseFloat(feeRow.value) : 1;
         const earnedUSD = (combinedVolumeUSD * feePercent) / 100;
         const earnedNGN = (combinedVolumeNGN * feePercent) / 100;
-        const pointStats = exports.storageService.getPointStats();
         return {
             totalUsers,
             allTransactions,
@@ -376,7 +350,6 @@ exports.storageService = {
             totalEarnedNGN: earnedNGN,
             platformFee: feePercent,
             currentRate: rate,
-            points: pointStats,
         };
     },
     getAdminTransactions: (limit = 50) => {
@@ -405,8 +378,7 @@ exports.storageService = {
         u.full_name,
         u.created_at,
         u.last_seen,
-        u.tx_count,
-        u.points
+        u.tx_count
       FROM users u
       ORDER BY u.tx_count DESC, u.id ASC
     `).all();
@@ -427,14 +399,34 @@ exports.storageService = {
             };
         }).sort((a, b) => b.total_volume - a.total_volume);
     },
+    getDetailedReferralStats: () => {
+        const referrers = db.prepare(`
+      SELECT 
+        u.id, u.username, u.full_name, u.referral_code, u.referral_count, 
+        u.referral_balance, u.total_referral_earnings
+      FROM users u
+      WHERE u.referral_count > 0
+      ORDER BY u.total_referral_earnings DESC
+    `).all();
+        return referrers.map(r => {
+            const referrals = db.prepare(`
+        SELECT id, username, full_name, total_volume, created_at
+        FROM users
+        WHERE referred_by = ?
+        ORDER BY total_volume DESC
+      `).all(r.id);
+            return {
+                ...r,
+                referrals
+            };
+        });
+    },
     getUserDetailStats: (userId, rate = 1600) => {
         const statsResult = db.prepare(`
       SELECT 
         COUNT(*) as total_tx,
         SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as success_tx,
-        SUM(CASE WHEN status IN ('FAILED', 'EXPIRED') THEN 1 ELSE 0 END) as failed_tx,
-        SUM(points_earned) as points_earned,
-        SUM(points_redeemed) as points_redeemed
+        SUM(CASE WHEN status IN ('FAILED', 'EXPIRED') THEN 1 ELSE 0 END) as failed_tx
       FROM transactions 
       WHERE user_id = ?
     `).get(userId);
@@ -455,18 +447,15 @@ exports.storageService = {
                 success: statsResult.success_tx || 0,
                 failed: statsResult.failed_tx || 0,
                 volume: volUSD + (volNGN / rate),
-                volume_ngn: volNGN + (volUSD * rate),
-                pointsEarned: statsResult.points_earned || 0,
-                pointsRedeemed: statsResult.points_redeemed || 0,
+                volume_ngn: volNGN + (volUSD * rate)
             }
         };
     },
     getTransactionDetails: (reference) => {
         return db.prepare(`
       SELECT 
-        t.id, t.user_id, t.reference, t.type, t.asset, t.amount, t.currency, t.status, t.hash, t.created_at, t.updated_at,
-        t.points_earned, t.points_redeemed, t.points_discount_pct,
-        u.username, u.full_name, u.id as user_db_id, u.points as user_points
+        t.id, t.user_id, t.reference, t.type, t.asset, t.amount, t.currency, t.status, t.hash, t.created_at, t.updated_at, t.wallet_address,
+        u.username, u.full_name, u.id as user_db_id
       FROM transactions t
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.reference = ?

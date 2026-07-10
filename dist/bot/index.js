@@ -10,6 +10,7 @@ const https_proxy_agent_1 = require("https-proxy-agent");
 const config_1 = require("../config");
 const onramp_1 = require("./scenes/onramp");
 const offramp_1 = require("./scenes/offramp");
+const withdraw_1 = require("./scenes/withdraw");
 const storage_1 = require("../services/storage");
 const switch_1 = require("../services/switch");
 const index_1 = require("../utils/index");
@@ -34,7 +35,7 @@ async function getBotUsername() {
         return null;
     }
 }
-const stage = new telegraf_1.Scenes.Stage([onramp_1.onrampWizard, offramp_1.offrampWizard]);
+const stage = new telegraf_1.Scenes.Stage([onramp_1.onrampWizard, offramp_1.offrampWizard, withdraw_1.withdrawalWizard]);
 exports.bot.use((0, telegraf_1.session)());
 exports.bot.use((ctx, next) => {
     var _a;
@@ -44,68 +45,10 @@ exports.bot.use((ctx, next) => {
     logger_1.default.info(`Update: [${updateType}] from [${from}]${text ? ` text: ${text}` : ''}`);
     return next();
 });
-exports.bot.command('points', async (ctx) => {
-    if (!ctx.from)
-        return;
-    try {
-        const pointSettings = storage_1.storageService.getPointSettings();
-        const points = storage_1.storageService.getUserPoints(ctx.from.id);
-        const pointsUsed = Math.min(points, pointSettings.maxPerTx);
-        const bonusPct = pointsUsed * pointSettings.valuePct;
-        await ctx.replyWithHTML(`
-🎁 <b>Your Bonus Points</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⭐ <b>Total Points Acquired:</b> ${points.toLocaleString()}
-
-🎁 <b>Next Transaction Bonus:</b> ${bonusPct}%
-
-💡 <i>You earn 1 point for every completed transaction.</i>
-💡 <i>Do more transactions to unlock higher bonuses</i>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The more you trade, the bigger your bonus! 🚀
-`, keyboards_1.MAIN_KEYBOARD);
-    }
-    catch (err) {
-        logger_1.default.error(`Error in /points command: ${err.message}`);
-        await ctx.reply('❌ Could not fetch your points balance.');
-    }
-});
 exports.bot.command('referrals', async (ctx) => {
     if (!ctx.from)
         return;
-    try {
-        const stats = storage_1.storageService.getUserReferralStats(ctx.from.id);
-        const username = await getBotUsername();
-        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
-        await ctx.replyWithHTML(`
-👥 <b>My Referrals</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>Your referral link:</b>
-<code>${link}</code>
-
-👤 <b>Referrals:</b> ${stats.referralCount}
-⭐ <b>Points earned:</b> ${stats.referralPointsEarned}
-
-💡 <i>Share your link and earn 5 points for every friend who joins!</i>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-powered by usevelcro.com
-`, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and earn bonuses on every crypto transaction!')}`)],
-            [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
-        ]));
-    }
-    catch (err) {
-        logger_1.default.error(`Error in /referrals command: ${err.message}`);
-        await ctx.reply('❌ Could not fetch your referral info.');
-    }
+    return handleReferrals(ctx);
 });
 exports.bot.command('start', async (ctx) => {
     var _a, _b, _c;
@@ -131,7 +74,7 @@ exports.bot.command('start', async (ctx) => {
                     if (recorded) {
                         const referredUsername = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Someone');
                         try {
-                            await exports.bot.telegram.sendMessage(referrerId, `${referredUsername} used your referral link, you have earned 5 points, powered by usevelcro.com`);
+                            await exports.bot.telegram.sendMessage(referrerId, `${referredUsername} used your referral link! You will earn a percentage of every transaction they complete.`);
                         }
                         catch (notifyErr) {
                             logger_1.default.error(`Failed to notify referrer ${referrerId}: ${notifyErr.message}`);
@@ -256,6 +199,32 @@ exports.bot.on('text', async (ctx, next) => {
         }
         return;
     }
+    if (ctx.session.awaiting_offramp_hash) {
+        const hash = ctx.message.text.trim();
+        const reference = ctx.session.pending_offramp_ref;
+        delete ctx.session.awaiting_offramp_hash;
+        delete ctx.session.pending_offramp_ref;
+        if (hash.length < 5) {
+            return ctx.reply('❌ This hash looks too short. Please try again from the "I Have Paid" button.');
+        }
+        try {
+            const statusMsg = await ctx.replyWithHTML('⏳ <b>Processing your payment...</b>');
+            await switch_1.switchService.confirmDeposit(reference, hash);
+            setTimeout(async () => {
+                return (0, index_1.safeEdit)(ctx, `
+⏳ <b>Verifying Transaction...</b>
+
+We've notified the system of your transfer (Ref: <code>${hash}</code>).
+
+The system is now verifying your payment. You will receive a confirmation message once it is completed. 🚀
+`, telegraf_1.Markup.inlineKeyboard([[telegraf_1.Markup.button.callback('🏠 Main Menu', 'action_menu')]]));
+            }, 1500);
+        }
+        catch (e) {
+            return ctx.reply(`❌ Confirmation Failed: ${e.message}`);
+        }
+        return;
+    }
     return next();
 });
 exports.bot.action('action_menu', async (ctx) => {
@@ -315,61 +284,121 @@ exports.bot.action('action_beneficiaries', async (ctx) => {
 exports.bot.action('action_rates', async (ctx) => {
     if (ctx.callbackQuery)
         await ctx.answerCbQuery('Fetching rates...').catch(() => { });
-    await handleRates(ctx);
+    return handleRates(ctx);
 });
 exports.bot.action('action_help', async (ctx) => {
     if (ctx.callbackQuery)
         await ctx.answerCbQuery().catch(() => { });
-    await handleHelp(ctx);
+    return handleHelp(ctx);
 });
 exports.bot.action('action_history', async (ctx) => {
     if (ctx.callbackQuery)
         await ctx.answerCbQuery('Fetching history...').catch(() => { });
-    await handleHistory(ctx);
-});
-exports.bot.action('action_points', async (ctx) => {
-    if (ctx.callbackQuery)
-        await ctx.answerCbQuery('Fetching points...').catch(() => { });
-    if (!ctx.from)
-        return;
-    try {
-        const pointSettings = storage_1.storageService.getPointSettings();
-        const points = storage_1.storageService.getUserPoints(ctx.from.id);
-        const pointsUsedAction = Math.min(points, pointSettings.maxPerTx);
-        const bonusPctAction = pointsUsedAction * pointSettings.valuePct;
-        await ctx.replyWithHTML(`
-🎁 <b>Your Bonus Points</b>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⭐ <b>Total Points Acquired:</b> ${points.toLocaleString()}
-
-🎁 <b>Next Transaction Bonus:</b> ${bonusPctAction}%
-
-💡 <i>You earn 1 point for every completed transaction.</i>
-💡 <i>Do more transactions to unlock higher bonuses</i>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The more you trade, the bigger your bonus! 🚀
-`, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
-        ]));
-    }
-    catch (err) {
-        logger_1.default.error(`Error in action_points: ${err.message}`);
-        await ctx.reply('❌ Could not fetch your points balance.');
-    }
+    return handleHistory(ctx);
 });
 exports.bot.action('action_referrals', async (ctx) => {
     if (ctx.callbackQuery)
         await ctx.answerCbQuery('Fetching referrals...').catch(() => { });
+    return handleReferrals(ctx);
+});
+exports.bot.action(/^action_confirm_payment:?(.+)?$/, async (ctx) => {
+    const reference = ctx.match[1];
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
+    if (!reference) {
+        return ctx.reply('⚠️ Error: Transaction reference missing. Please try again or contact support.');
+    }
+    const tx = storage_1.storageService.getTransaction(reference);
+    if (!tx) {
+        return ctx.reply('⚠️ Error: Transaction not found in history.');
+    }
+    if (tx.type === 'OFFRAMP') {
+        ctx.session.awaiting_offramp_hash = true;
+        ctx.session.pending_offramp_ref = reference;
+        return ctx.replyWithHTML(`
+⏳ <b>Checking payment...</b>
+
+Great! To finalize your sale, please provide your <b>Transaction Hash (TXID)</b> for the crypto transfer.
+
+Paste it below now: 👇
+`);
+    }
+    else {
+        try {
+            await switch_1.switchService.confirmDeposit(reference);
+        }
+        catch (e) {
+            logger_1.default.warn(`Auto-confirm failed for onramp ${reference}: ${e.message}`);
+        }
+        return ctx.replyWithHTML(`
+⏳ <b>Checking payment...</b>
+
+Our system is now searching for your Naira transfer. This usually takes 1-5 minutes.
+
+You will receive a notification here as soon as it is detected and confirmed. 🚀
+`, telegraf_1.Markup.inlineKeyboard([
+            [telegraf_1.Markup.button.callback('🔄 Confirm Payment', `action_confirm_payment:${reference}`)],
+            [telegraf_1.Markup.button.callback('🏠 Main Menu', 'action_menu')]
+        ]));
+    }
+});
+exports.bot.action('action_withdraw_referrals', async (ctx) => {
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery().catch(() => { });
+    await ctx.scene.enter('withdrawal-wizard');
+});
+exports.bot.action('action_share_menu', async (ctx) => {
+    if (!ctx.from)
+        return;
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery('Opening share options...').catch(() => { });
+    try {
+        const stats = storage_1.storageService.getUserReferralStats(ctx.from.id);
+        const username = await getBotUsername();
+        const link = (username && stats.code) ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+        const text = 'Join me on usevelcro and get cash rewards on every crypto transaction!';
+        const shareMsg = `
+📤 <b>Share your Referral Link</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Choose a platform to share your link:
+`;
+        const keyboard = telegraf_1.Markup.inlineKeyboard([
+            [
+                telegraf_1.Markup.button.url('✈️ Telegram', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`),
+                telegraf_1.Markup.button.url('💬 WhatsApp', `https://api.whatsapp.com/send?text=${encodeURIComponent(text + ' ' + link)}`)
+            ],
+            [
+                telegraf_1.Markup.button.url('𝕏 (Twitter)', `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`),
+                telegraf_1.Markup.button.callback('📋 Copy Link', 'action_copy_link')
+            ],
+            [telegraf_1.Markup.button.callback('🏠 Back to Referrals', 'action_referrals')]
+        ]);
+        await ctx.replyWithHTML(shareMsg, keyboard);
+    }
+    catch (err) {
+        logger_1.default.error(`Error in action_share_menu: ${err.message}`);
+        await ctx.reply('❌ Could not open share menu.');
+    }
+});
+exports.bot.action('action_copy_link', async (ctx) => {
+    if (!ctx.from)
+        return;
+    if (ctx.callbackQuery)
+        await ctx.answerCbQuery('Link sent below! 👇').catch(() => { });
+    const stats = storage_1.storageService.getUserReferralStats(ctx.from.id);
+    const username = await getBotUsername();
+    const link = (username && stats.code) ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+    await ctx.replyWithHTML(`🔗 <b>Your Referral Link (tap to copy):</b>\n\n<code>${link}</code>`);
+});
+async function handleReferrals(ctx) {
     if (!ctx.from)
         return;
     try {
         const stats = storage_1.storageService.getUserReferralStats(ctx.from.id);
         const username = await getBotUsername();
-        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+        const link = (username && stats.code) ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
         await ctx.replyWithHTML(`
 👥 <b>My Referrals</b>
 
@@ -378,16 +407,19 @@ exports.bot.action('action_referrals', async (ctx) => {
 🔗 <b>Your referral link:</b>
 <code>${link}</code>
 
-👤 <b>Referrals:</b> ${stats.referralCount}
-⭐ <b>Points earned:</b> ${stats.referralPointsEarned}
+👤 <b>Total Referred Users:</b> ${stats.referralCount}
 
-💡 <i>Share your link and earn 5 points for every friend who joins!</i>
+💰 <b>Current Balance:</b> $${stats.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+💵 <b>Total Lifetime Earnings:</b> $${stats.totalEarned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+
+💡 <i>You earn 0.1% on all transactions completed by your referrals! Share your link to start earning.</i>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 powered by usevelcro.com
 `, telegraf_1.Markup.inlineKeyboard([
-            [telegraf_1.Markup.button.url('📤 Share Link', `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join me on usevelcro and earn bonuses on every crypto transaction!')}`)],
+            [telegraf_1.Markup.button.callback('💸 Withdraw Earnings', 'action_withdraw_referrals')],
+            [telegraf_1.Markup.button.callback('📤 Share to Platforms', 'action_share_menu')],
             [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
         ]));
     }
@@ -395,7 +427,7 @@ powered by usevelcro.com
         logger_1.default.error(`Error in action_referrals: ${err.message}`);
         await ctx.reply('❌ Could not fetch your referral info.');
     }
-});
+}
 exports.bot.action(/^status_(.+)$/, async (ctx) => {
     const reference = ctx.match[1];
     if (ctx.callbackQuery)
@@ -412,7 +444,7 @@ exports.bot.action(/^status_(.+)$/, async (ctx) => {
         const redoAction = (transaction === null || transaction === void 0 ? void 0 : transaction.type) === 'OFFRAMP' ? 'action_offramp' : 'action_onramp';
         await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
             [telegraf_1.Markup.button.callback('🔄 Refresh Status', `status_${reference}`)],
-            [telegraf_1.Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro')],
+            [telegraf_1.Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro_chat')],
             [telegraf_1.Markup.button.callback('🔁 Redo Transaction', redoAction)],
             [telegraf_1.Markup.button.callback('🏠 Main Menu', 'action_menu')]
         ]));
@@ -585,23 +617,20 @@ I'm designed to be the simplest way to move between cash and crypto! 🌍
 • Get cash in your bank account instantly! 💸
 
 <b>Need human help?</b>
-Just join our community group at <a href="https://t.me/usevelcro">@usevelcro</a> and our team will sort you out! 🌍🤝
+Just join our community group at <a href="https://t.me/usevelcro_chat">@usevelcro_chat</a> and our team will sort you out! 🌍🤝
 `;
     await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard([
         [telegraf_1.Markup.button.callback('🏠 Back to Menu', 'action_menu')]
     ]));
 }
 exports.bot.command('onramp', async (ctx) => {
-    await (0, index_1.safeDelete)(ctx);
     await ctx.scene.enter('onramp-wizard');
 });
 exports.bot.command('offramp', async (ctx) => {
-    await (0, index_1.safeDelete)(ctx);
     await ctx.scene.enter('offramp-wizard');
 });
 exports.bot.command('help', async (ctx) => {
     var _a;
-    await (0, index_1.safeDelete)(ctx);
     const name = ((_a = ctx.from) === null || _a === void 0 ? void 0 : _a.first_name) || 'Friend';
     return ctx.replyWithHTML(getWelcomeMsg(name), keyboards_1.MAIN_KEYBOARD);
 });

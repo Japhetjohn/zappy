@@ -6,7 +6,6 @@ const switch_1 = require("../../services/switch");
 const storage_1 = require("../../services/storage");
 const config_1 = require("../../config");
 const utils_1 = require("../../utils");
-const keyboards_1 = require("../keyboards");
 const onrampWizard = new telegraf_1.Scenes.WizardScene('onramp-wizard', async (ctx) => {
     ctx.wizard.state.data = {};
     try {
@@ -112,9 +111,10 @@ Buying: <b>${ctx.wizard.state.data.symbol}</b> (${ctx.wizard.state.data.asset.bl
 
 Choose your local currency:
 `;
-        const currencyButtons = coverage.map((c) => {
+        const filteredCoverage = coverage.filter((c) => c.country === 'NG');
+        const currencyButtons = filteredCoverage.map((c) => {
             const currency = Array.isArray(c.currency) ? c.currency[0] : c.currency;
-            const flag = c.country === 'NG' ? '🇳🇬' : '🌍';
+            const flag = '🇳🇬';
             return telegraf_1.Markup.button.callback(`${flag} ${currency} (${c.country})`, `country:${c.country}:${currency}`);
         });
         const buttons = (0, utils_1.formatButtons21)(currencyButtons);
@@ -177,45 +177,23 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
     const amount = parseFloat(text.replace(/,/g, ''));
     ctx.wizard.state.data.amount = amount;
     try {
-        const pointSettings = storage_1.storageService.getPointSettings();
-        const userPoints = storage_1.storageService.getUserPoints(ctx.from.id);
-        const redeemablePoints = Math.min(userPoints, pointSettings.maxPerTx);
-        const pointsDiscountPct = redeemablePoints * pointSettings.valuePct;
+        await ctx.replyWithHTML('⏳ <i>Fetching live quote...</i>');
         const settings = storage_1.storageService.getSettings();
         const platformFeeRaw = settings.platform_fee || config_1.config.developerFee.toString();
         const platformFee = parseFloat(platformFeeRaw);
-        const baseQuote = await switch_1.switchService.getOnrampQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
-        const bonusQuote = await switch_1.switchService.getOnrampQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, undefined, pointsDiscountPct);
-        ctx.wizard.state.quote = bonusQuote;
-        ctx.wizard.state.baseQuote = baseQuote;
+        const quote = await switch_1.switchService.getOnrampQuote(amount, ctx.wizard.state.data.country, ctx.wizard.state.data.asset.id, ctx.wizard.state.data.currency, platformFee);
+        ctx.wizard.state.quote = quote;
         ctx.wizard.state.platformFee = platformFee;
-        ctx.wizard.state.pointsRedeemed = redeemablePoints;
-        ctx.wizard.state.pointsDiscountPct = pointsDiscountPct;
-        const hasBonus = redeemablePoints > 0 && bonusQuote.destination.amount > baseQuote.destination.amount;
-        let msg = `
+        const msg = `
 📊 <b>Review Quote</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💵 <b>You Pay:</b> ${(0, utils_1.formatAmount)(bonusQuote.source.amount)} ${ctx.wizard.state.data.currency}
-💰 <b>You Get:</b> ${(0, utils_1.formatAmount)(bonusQuote.destination.amount)} ${ctx.wizard.state.data.symbol}
-`;
-        if (hasBonus) {
-            msg += `
-🎁 <b>You have earned ${pointsDiscountPct}% bonus on your transaction</b>
-⭐ <b>Points Used:</b> ${redeemablePoints}
-💡 <i>Do more transactions to unlock higher bonuses</i>
-`;
-        }
-        else if (userPoints > 0) {
-            msg += `
-⭐ <b>Your Points:</b> ${userPoints.toLocaleString()}
-💡 <i>Do more transactions to unlock higher bonuses</i>
-`;
-        }
-        msg += `
-📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${(0, utils_1.formatAmount)(bonusQuote.rate)} ${ctx.wizard.state.data.currency}
-${bonusQuote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(bonusQuote.fee.total)} ${bonusQuote.fee.currency}` : ''}
+💵 <b>You Pay:</b> ${(0, utils_1.formatAmount)(quote.source.amount)} ${ctx.wizard.state.data.currency}
+💰 <b>You Get:</b> ${(0, utils_1.formatAmount)(quote.destination.amount)} ${ctx.wizard.state.data.symbol}
+
+📈 <b>Rate:</b> 1 ${ctx.wizard.state.data.symbol} = ${(0, utils_1.formatAmount)(quote.rate)} ${ctx.wizard.state.data.currency}
+${quote.fee ? `💳 <b>Fee:</b> ${(0, utils_1.formatAmount)(quote.fee.total)} ${quote.fee.currency}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -328,7 +306,6 @@ Is this correct?
     ];
     await (0, utils_1.safeEdit)(ctx, msg, telegraf_1.Markup.inlineKeyboard(buttons));
 }, async (ctx) => {
-    var _a;
     if (ctx.callbackQuery) {
         if (ctx.callbackQuery)
             await ctx.answerCbQuery().catch(() => { });
@@ -345,18 +322,16 @@ Is this correct?
             walletAddress: walletAddress,
             holderName: ctx.from.first_name || 'Trader',
             currency: ctx.wizard.state.data.currency,
-            developerFee: ctx.wizard.state.platformFee,
-            pointDiscountPct: ctx.wizard.state.pointsDiscountPct
+            developerFee: ctx.wizard.state.platformFee
         });
-        storage_1.storageService.addTransactionAndRedeemPoints({
+        storage_1.storageService.addTransaction({
             userId: ctx.from.id,
             reference: result.reference,
             type: 'ONRAMP',
             asset: ctx.wizard.state.data.asset.id,
             amount: ctx.wizard.state.data.amount,
             currency: ctx.wizard.state.data.currency,
-            pointsRedeemed: ctx.wizard.state.pointsRedeemed || 0,
-            pointsDiscountPct: ctx.wizard.state.pointsDiscountPct || 0
+            walletAddress: walletAddress
         });
         const msg = `
 ✅ <b>Order Created!</b>
@@ -384,7 +359,8 @@ You will be notified  once the funds are received.
 💡 <i>No need to notify us — Sit back and wait for your crypto!</i>
 `;
         const buttons = [
-            ...(((_a = keyboards_1.MAIN_KEYBOARD.reply_markup) === null || _a === void 0 ? void 0 : _a.inline_keyboard) || [])
+            [telegraf_1.Markup.button.callback('✅ I Have Paid', `action_confirm_payment:${result.reference}`)],
+            [telegraf_1.Markup.button.url('📞 Contact Support', 'https://t.me/usevelcro_chat')]
         ];
         await ctx.replyWithHTML(msg, telegraf_1.Markup.inlineKeyboard(buttons));
         return ctx.scene.leave();
