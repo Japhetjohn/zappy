@@ -399,7 +399,7 @@ bot.action('action_share_menu', async (ctx) => {
     try {
         const stats = storageService.getUserReferralStats(ctx.from.id);
         const username = await getBotUsername();
-        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+        const link = (username && stats.code) ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
         const text = 'Join me on usevelcro and get cash rewards on every crypto transaction!';
 
         const shareMsg = `
@@ -435,7 +435,7 @@ bot.action('action_copy_link', async (ctx) => {
 
     const stats = storageService.getUserReferralStats(ctx.from.id);
     const username = await getBotUsername();
-    const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+    const link = (username && stats.code) ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
 
     await ctx.replyWithHTML(`🔗 <b>Your Referral Link (tap to copy):</b>\n\n<code>${link}</code>`);
 });
@@ -445,7 +445,7 @@ async function handleReferrals(ctx: any) {
     try {
         const stats = storageService.getUserReferralStats(ctx.from.id);
         const username = await getBotUsername();
-        const link = username ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
+        const link = (username && stats.code) ? `https://t.me/${username}?start=${stats.code}` : 'Link unavailable';
 
         await ctx.replyWithHTML(`
 👥 <b>My Referrals</b>

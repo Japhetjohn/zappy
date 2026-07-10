@@ -358,9 +358,21 @@ export const storageService = {
   },
 
   getUserReferralStats: (userId: number) => {
-    const user = db.prepare('SELECT referral_code, referral_count, referral_balance, total_referral_earnings FROM users WHERE id = ?').get(userId) as any;
+    let user = db.prepare('SELECT referral_code, referral_count, referral_balance, total_referral_earnings FROM users WHERE id = ?').get(userId) as any;
+
+    if (!user) {
+      return { code: null, referralCount: 0, balance: 0, totalEarned: 0 };
+    }
+
+    // Lazy-generate a referral code if the user doesn't have one
+    if (!user.referral_code) {
+      const code = generateUniqueReferralCode(userId);
+      db.prepare('UPDATE users SET referral_code = ? WHERE id = ?').run(code, userId);
+      user.referral_code = code;
+    }
+
     return {
-      code: user?.referral_code || null,
+      code: user.referral_code,
       referralCount: user?.referral_count || 0,
       balance: user?.referral_balance || 0,
       totalEarned: user?.total_referral_earnings || 0,
