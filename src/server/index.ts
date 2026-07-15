@@ -207,7 +207,8 @@ app.get('/api/admin/users/:id/transactions', adminAuth, (req: Request, res: Resp
 // --- Withdraw Developer Fees ---
 app.post('/api/admin/withdraw', adminAuth, async (req: Request, res: Response): Promise<any> => {
     try {
-        const SOLANA_WALLET = config.developerWallet || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV';
+        const defaultWallet = config.developerRecipients.solana || config.developerWallet || 'GMaeFMXrbxTfS2e83B92YticnGYKdF4DaG5FWjL25tNV';
+        const walletAddress = req.body.address || defaultWallet;
         const asset = req.body.asset || 'solana:usdc';
 
         // First check available fees
@@ -216,10 +217,10 @@ app.post('/api/admin/withdraw', adminAuth, async (req: Request, res: Response): 
             return res.status(400).json({ error: 'No fees available to withdraw', available: fees });
         }
 
-        logger.info(`💸 Admin initiated fee withdrawal: ${fees.amount} ${fees.currency} -> ${SOLANA_WALLET} as ${asset}`);
+        logger.info(`💸 Admin initiated fee withdrawal: ${fees.amount} ${fees.currency} -> ${walletAddress} as ${asset}`);
 
         // Execute withdrawal
-        const result = await switchService.withdrawDeveloperFees(asset, SOLANA_WALLET);
+        const result = await switchService.withdrawDeveloperFees(asset, walletAddress);
 
         logger.info(`✅ Fee withdrawal successful: ${JSON.stringify(result)}`);
         return res.json({
@@ -227,7 +228,7 @@ app.post('/api/admin/withdraw', adminAuth, async (req: Request, res: Response): 
             message: 'Withdrawal initiated successfully',
             data: {
                 ...result,
-                wallet: SOLANA_WALLET,
+                wallet: walletAddress,
                 asset,
             }
         });

@@ -199,7 +199,9 @@ bot.action('withdraw_fees', async (ctx): Promise<any> => {
 
 Current Balance: <b>${fees.amount} ${fees.currency}</b>
 
-Please enter the <b>Solana Wallet Address</b> where you want to receive your USDC payout:
+Please enter the <b>Wallet Address</b> where you want to receive your payout:
+
+<i>Solana address → solana:usdc. EVM address (0x...) → base:usdc.</i>
 `;
         await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
             [Markup.button.callback('❌ Cancel', 'action_menu')]
@@ -224,7 +226,10 @@ bot.on('text', async (ctx, next) => {
 
         try {
             await ctx.reply('⏳ Processing withdrawal...');
-            const result = await switchService.withdrawDeveloperFees('base:usdc', address);
+            // Detect target chain from address format to pick the right asset.
+            const isEvm = /^0x[a-fA-F0-9]{40}$/.test(address);
+            const asset = isEvm ? 'base:usdc' : 'solana:usdc';
+            const result = await switchService.withdrawDeveloperFees(asset, address);
             await ctx.replyWithHTML(`✅ <b>Withdrawal Successful!</b>\n\nReference: <code>${result.reference}</code>\n\nFunds will arrive shortly.`);
         } catch (e: any) {
             await ctx.reply(`❌ Withdrawal Failed: ${e.message}`);

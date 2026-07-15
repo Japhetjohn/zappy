@@ -8,6 +8,29 @@ function computeEffectiveFee(pointDiscountPct?: number): number {
     return Math.max(0, baseFee - pointDiscountPct);
 }
 
+// EVM chains that can share the same EVM recipient address.
+const EVM_BLOCKCHAINS = new Set([
+    'ETHEREUM', 'BASE', 'ARBITRUM', 'OPTIMISM', 'POLYGON', 'AVALANCHE',
+    'CELO', 'GNOSIS', 'LINEA', 'MANTLE', 'BERACHAIN', 'HYPEREVM', 'SONIC',
+    'MONAD', 'PLASMA'
+]);
+
+function getDeveloperRecipient(assetId: string): string | undefined {
+    const blockchain = assetId.split(':')[0]?.toUpperCase();
+    if (!blockchain) return undefined;
+
+    if (blockchain === 'SOLANA') {
+        return config.developerRecipients.solana || config.developerWallet || undefined;
+    }
+    if (blockchain === 'BSC' || blockchain === 'BNB' || blockchain === 'BNB SMART CHAIN') {
+        return config.developerRecipients.bsc || config.developerRecipients.evm || undefined;
+    }
+    if (EVM_BLOCKCHAINS.has(blockchain)) {
+        return config.developerRecipients.evm || config.developerRecipients.bsc || undefined;
+    }
+    return undefined;
+}
+
 export class SwitchService {
     private api: AxiosInstance;
     private useMock: boolean = false;
@@ -104,7 +127,8 @@ export class SwitchService {
 
     async getOnrampQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number, pointDiscountPct?: number): Promise<Quote> {
         try {
-            const payload = {
+            const developerRecipient = getDeveloperRecipient(asset);
+            const payload: any = {
                 amount,
                 country,
                 asset,
@@ -112,10 +136,14 @@ export class SwitchService {
                 channel: 'BANK',
                 developer_fee: developerFee !== undefined ? developerFee : computeEffectiveFee(pointDiscountPct),
             };
+            if (developerRecipient) {
+                payload.developer_recipient = developerRecipient;
+            }
             console.log('--- DEBUG: ONRAMP QUOTE REQUEST ---');
             console.log(JSON.stringify(payload, null, 2));
 
             const response = await this.api.post('/onramp/quote', payload);
+
             console.log('--- DEBUG: ONRAMP QUOTE RESPONSE ---');
             console.log(JSON.stringify(response.data, null, 2));
             if (response.data.success) {
@@ -164,9 +192,12 @@ export class SwitchService {
                 channel: 'BANK',
                 reason: 'REMITTANCES',
                 developer_fee: data.developerFee !== undefined ? data.developerFee : computeEffectiveFee(data.pointDiscountPct),
-                // Add developer wallet for fee collection (Solana/Single-Wallet mode)
-                developer_wallet: config.developerWallet,
             };
+
+            const developerRecipient = getDeveloperRecipient(data.asset);
+            if (developerRecipient) {
+                payload.developer_recipient = developerRecipient;
+            }
 
             // Pass sender details if available to help with reconciliation/VA generation
             if (data.senderBankCode && data.senderAccountNumber) {
@@ -191,14 +222,19 @@ export class SwitchService {
 
     async getOfframpQuote(amount: number, country: string, asset: string, currency: string = 'NGN', developerFee?: number, pointDiscountPct?: number): Promise<Quote> {
         try {
-            const response = await this.api.post('/offramp/quote', {
+            const developerRecipient = getDeveloperRecipient(asset);
+            const payload: any = {
                 amount,
                 country,
                 asset,
                 currency,
                 channel: 'BANK',
                 developer_fee: developerFee !== undefined ? developerFee : computeEffectiveFee(pointDiscountPct),
-            });
+            };
+            if (developerRecipient) {
+                payload.developer_recipient = developerRecipient;
+            }
+            const response = await this.api.post('/offramp/quote', payload);
             if (response.data.success) {
                 return response.data.data;
             }
@@ -223,7 +259,7 @@ export class SwitchService {
         pointDiscountPct?: number;
     }): Promise<any> {
         try {
-            const response = await this.api.post('/offramp/initiate', {
+            const payload: any = {
                 amount: data.amount,
                 country: data.country,
                 currency: data.currency || 'NGN',
@@ -237,8 +273,14 @@ export class SwitchService {
                 channel: 'BANK',
                 reason: 'REMITTANCES',
                 developer_fee: data.developerFee !== undefined ? data.developerFee : computeEffectiveFee(data.pointDiscountPct),
-                developer_wallet: config.developerWallet
-            });
+            };
+
+            const developerRecipient = getDeveloperRecipient(data.asset);
+            if (developerRecipient) {
+                payload.developer_recipient = developerRecipient;
+            }
+
+            const response = await this.api.post('/offramp/initiate', payload);
             if (response.data.success) {
                 return response.data.data;
             }

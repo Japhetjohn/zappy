@@ -19,7 +19,15 @@ export const config = {
   },
   // Platform fee passed to Switch as developer_fee. Kept at 1% for the points/bonus program.
   developerFee: Number(process.env.DEVELOPER_FEE) || 1,
-  developerWallet: requireEnv('DEVELOPER_WALLET'),
+  // Backward compatibility: single wallet used as Solana fallback.
+  developerWallet: process.env.DEVELOPER_WALLET,
+  // Per-chain developer fee recipients. Each address must belong to the matching network.
+  developerRecipients: {
+    solana: process.env.DEVELOPER_WALLET_SOLANA || process.env.DEVELOPER_WALLET || '',
+    bsc: process.env.DEVELOPER_WALLET_BSC || '',
+    // Fallback for all EVM L2s and mainnet (Base, Ethereum, Arbitrum, Optimism, Polygon, etc.)
+    evm: process.env.DEVELOPER_WALLET_EVM || process.env.DEVELOPER_WALLET_BSC || '',
+  },
   adminPassword: requireEnv('ADMIN_PASSWORD'),
   port: process.env.PORT || 3000,
   baseUrl: process.env.BASE_URL,
