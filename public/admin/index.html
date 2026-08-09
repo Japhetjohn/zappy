@@ -956,6 +956,14 @@
                     <span style="color: var(--text-secondary); font-size: 13px;">Type</span>
                     <b id="modal-type">ONRAMP</b>
                 </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                    <span style="color: var(--text-secondary); font-size: 13px;">Asset</span>
+                    <b id="modal-asset">-</b>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                    <span style="color: var(--text-secondary); font-size: 13px;">Wallet / Bank</span>
+                    <b id="modal-wallet">-</b>
+                </div>
             </div>
 
             <div style="margin-bottom: 20px;">
@@ -1095,6 +1103,8 @@
                 document.getElementById('modal-status').innerText = tx.status;
                 document.getElementById('modal-status').className = `status-pill ${tx.status.toLowerCase()}`;
                 document.getElementById('modal-type').innerText = tx.type;
+                document.getElementById('modal-asset').innerText = tx.asset ? tx.asset.toUpperCase() : 'N/A';
+                document.getElementById('modal-wallet').innerText = tx.wallet_address || 'N/A';
 
                 let symbol = '$';
                 if (tx.type === 'ONRAMP') symbol = '₦';
@@ -1112,16 +1122,12 @@
 
                 currentTxRef = tx.reference;
 
-                // Show actions only for relevant statuses
+                // Enable actions across all statuses as requested by admin
                 const modalActions = document.getElementById('modal-actions');
                 const confirmBtn = document.getElementById('btn-manual-confirm');
 
-                if (tx.status === 'PENDING' || tx.status === 'AWAITING_DEPOSIT' || tx.status === 'PROCESSING') {
-                    modalActions.style.display = 'block';
-                    confirmBtn.style.display = (tx.status === 'AWAITING_DEPOSIT' || tx.status === 'PROCESSING') ? 'block' : 'none';
-                } else {
-                    modalActions.style.display = 'none';
-                }
+                modalActions.style.display = 'block';
+                confirmBtn.style.display = 'block';
 
                 const hashLink = document.getElementById('modal-hash-link');
                 if (tx.hash) {

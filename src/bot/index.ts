@@ -345,6 +345,11 @@ bot.action('action_referrals', async (ctx) => {
     return handleReferrals(ctx);
 });
 
+bot.action('action_volume', async (ctx) => {
+    if (ctx.callbackQuery) await ctx.answerCbQuery('Fetching volume...').catch(() => { });
+    return handleVolume(ctx);
+});
+
 bot.action(/^action_confirm_payment:?(.+)?$/, async (ctx) => {
     const reference = ctx.match[1];
     if (ctx.callbackQuery) await ctx.answerCbQuery().catch(() => { });
@@ -609,6 +614,12 @@ bot.hears(/\b(history|transactions|records|logs)\b/i, async (ctx) => {
     await handleHistory(ctx);
 });
 
+// Trigger Volume: volume, stats
+bot.hears(/\b(volume|stats)\b/i, async (ctx) => {
+    if (ctx.scene.current) return;
+    await handleVolume(ctx);
+});
+
 // Trigger Help: help, support, tutorial
 bot.hears(/\b(help|support|tutorial|faq)\b/i, async (ctx) => {
     if (ctx.scene.current) return;
@@ -635,6 +646,37 @@ async function handleRates(ctx: any) {
         ]));
     } catch (e) {
         await ctx.replyWithHTML('❌ Could not fetch rates. Please try again later.');
+    }
+}
+
+async function handleVolume(ctx: any) {
+    if (!ctx.from) return;
+    try {
+        const rates = await switchService.getRates().catch(() => ({ buy: 1600, sell: 1600 }));
+        const rate = (rates.buy + rates.sell) / 2 || 1600;
+        const details = storageService.getUserDetailStats(ctx.from.id, rate);
+        
+        const volUSD = Number(details.stats.volume).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        const volNGN = Number(details.stats.volume_ngn).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+        const msg = `
+📈 <b>My Transaction Volume</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💰 <b>Total Processed:</b> $${volUSD}
+💵 <b>Equivalent in Naira:</b> ₦${volNGN}
+
+📊 <b>Successful Trades:</b> ${details.stats.success}
+❌ <b>Failed Attempts:</b> ${details.stats.failed}
+
+<i>Keep trading to increase your volume and unlock future rewards!</i> 🚀
+`;
+        await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+            [Markup.button.callback('🏠 Back to Menu', 'action_menu')]
+        ]));
+    } catch (e) {
+        await ctx.replyWithHTML('❌ Could not fetch your volume stats.');
     }
 }
 
