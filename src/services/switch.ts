@@ -22,6 +22,9 @@ function getDeveloperRecipient(assetId: string): string | undefined {
     if (blockchain === 'SOLANA') {
         return config.developerRecipients.solana || config.developerWallet || undefined;
     }
+    if (blockchain === 'TRON') {
+        return config.developerRecipients.tron || undefined;
+    }
     if (blockchain === 'BSC' || blockchain === 'BNB' || blockchain === 'BNB SMART CHAIN') {
         return config.developerRecipients.bsc || config.developerRecipients.evm || undefined;
     }

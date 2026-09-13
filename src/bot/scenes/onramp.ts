@@ -18,17 +18,9 @@ const onrampWizard = new Scenes.WizardScene(
             const assets = await switchService.getAssets();
             ctx.wizard.state.assets = assets;
 
-            // Group by code (Symbol)
+            // Group by code (Symbol) and filter to strictly USDT and USDC
             const allSymbols = [...new Set(assets.map(a => a.code))];
-            const priorities = ['USDT', 'USDC', 'cNG']; // User requested priority
-            const symbols = allSymbols.sort((a, b) => {
-                const idxA = priorities.indexOf(a);
-                const idxB = priorities.indexOf(b);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
+            const symbols = allSymbols.filter(s => s === 'USDT' || s === 'USDC');
 
             const msg = `
 💰 <b>Buy Crypto</b>
@@ -170,7 +162,7 @@ Choose your local currency:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
-<i>(Minimum: $5 equivalent)</i>
+<i>(Minimum: 5000 NGN)</i>
 
 <i>Example: 50,000</i>
 `;
@@ -207,14 +199,14 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
         const amount = parseFloat(text.replace(/,/g, ''));
         ctx.wizard.state.data.amount = amount;
 
-        // Apply $5 rough minimum limit (approx 8000 NGN) except for admin
-        const MIN_LIMIT_NGN = 8000;
+        // Apply 5000 NGN minimum limit except for admin
+        const MIN_LIMIT_NGN = 5000;
         const username = ctx.from?.username;
         if (amount < MIN_LIMIT_NGN && username !== 'Official_johny01') {
             const errorMsg = `
 ❌ <b>Limit Error</b>
 
-⚠️ The minimum purchase amount is $5 equivalent (approx. <b>${formatAmount(MIN_LIMIT_NGN)} ${ctx.wizard.state.data.currency}</b>).
+⚠️ The minimum purchase amount is 5000 NGN.
 
 Please enter a larger amount.
             `;

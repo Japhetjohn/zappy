@@ -27,6 +27,7 @@ export const config = {
     bsc: process.env.DEVELOPER_WALLET_BSC || '',
     // Fallback for all EVM L2s and mainnet (Base, Ethereum, Arbitrum, Optimism, Polygon, etc.)
     evm: process.env.DEVELOPER_WALLET_EVM || process.env.DEVELOPER_WALLET_BSC || '',
+    tron: process.env.DEVELOPER_WALLET_TRON || '',
   },
   adminPassword: requireEnv('ADMIN_PASSWORD'),
   port: process.env.PORT || 3000,

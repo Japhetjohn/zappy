@@ -19,16 +19,9 @@ const offrampWizard = new Scenes.WizardScene(
             const assets = await switchService.getAssets();
             ctx.wizard.state.assets = assets;
 
+            // Group by code (Symbol) and restrict strictly to USDT and USDC
             const allSymbols = [...new Set(assets.map(a => a.code))];
-            const priorities = ['USDT', 'USDC', 'cNG']; // User requested priority
-            const symbols = allSymbols.sort((a, b) => {
-                const idxA = priorities.indexOf(a);
-                const idxB = priorities.indexOf(b);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
+            const symbols = allSymbols.filter(s => s === 'USDT' || s === 'USDC');
 
             const msg = `
 🪙 <b>Sell Crypto</b>
@@ -177,6 +170,7 @@ Choose your local currency:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
+<i>(Minimum: $2)</i>
 
 <i>Example: 100 (Max: $10,000)</i>
 `;
@@ -226,6 +220,13 @@ How many <b>${ctx.wizard.state.data.symbol}</b> would you like to sell?
                 platformFee
             );
 
+            // Apply $2 minimum limit (approx 3200 NGN) except for admin
+            const MIN_SELL_LIMIT_NGN = 3200;
+            const username = ctx.from?.username;
+            if (quote.destination.amount < MIN_SELL_LIMIT_NGN && username !== 'Official_johny01') {
+                throw new Error('Minimum sell amount is $2.');
+            }
+
             ctx.wizard.state.quote = quote;
             ctx.wizard.state.platformFee = platformFee;
 
@@ -252,10 +253,11 @@ ${quote.fee ? `💳 <b>Fee:</b> ${formatAmount(quote.fee.total)} ${quote.fee.cur
             return ctx.wizard.next();
 
         } catch (error: any) {
-            // Make error messages user-friendly
             let userMessage = error.message;
 
-            if (userMessage.includes('Minimum amount')) {
+            if (userMessage.includes('Minimum sell amount is $2.')) {
+                userMessage = `⚠️ The minimum sale amount is $2.\n\nPlease enter a larger amount.`;
+            } else if (userMessage.includes('Minimum amount')) {
                 userMessage = `⚠️ The minimum sale is <b>1 ${ctx.wizard.state.data.symbol}</b>.\n\nPlease enter a larger amount.`;
             } else if (userMessage.includes('Maximum amount')) {
                 userMessage = `⚠️ This amount exceeds the maximum limit.\n\nPlease enter a smaller amount.`;
