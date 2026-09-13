@@ -170,6 +170,7 @@ Choose your local currency:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
+<i>(Minimum: $5 equivalent)</i>
 
 <i>Example: 50,000</i>
 `;
@@ -205,6 +206,23 @@ How much <b>${ctx.wizard.state.data.currency}</b> would you like to spend?
 
         const amount = parseFloat(text.replace(/,/g, ''));
         ctx.wizard.state.data.amount = amount;
+
+        // Apply $5 rough minimum limit (approx 8000 NGN) except for admin
+        const MIN_LIMIT_NGN = 8000;
+        const username = ctx.from?.username;
+        if (amount < MIN_LIMIT_NGN && username !== 'Official_johny01') {
+            const errorMsg = `
+❌ <b>Limit Error</b>
+
+⚠️ The minimum purchase amount is $5 equivalent (approx. <b>${formatAmount(MIN_LIMIT_NGN)} ${ctx.wizard.state.data.currency}</b>).
+
+Please enter a larger amount.
+            `;
+            await ctx.replyWithHTML(errorMsg, Markup.inlineKeyboard([
+                [Markup.button.callback('🔄 Try Again', 'back'), Markup.button.callback('❌ Cancel', 'cancel')]
+            ]));
+            return;
+        }
 
         try {
             await ctx.replyWithHTML('⏳ <i>Fetching live quote...</i>');
