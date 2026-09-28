@@ -1091,6 +1091,23 @@
         let sortDirections = {};
         let refreshInterval = null;
 
+        function getExplorerUrl(hash, asset) {
+            if (!hash) return '#';
+            const network = (asset || '').toLowerCase().split(':')[0];
+            const explorers = {
+                'bsc':   `https://bscscan.com/tx/${hash}`,
+                'tron':  `https://tronscan.org/#/transaction/${hash}`,
+                'trx':   `https://tronscan.org/#/transaction/${hash}`,
+                'eth':   `https://etherscan.io/tx/${hash}`,
+                'sol':   `https://solscan.io/tx/${hash}`,
+                'matic': `https://polygonscan.com/tx/${hash}`,
+                'poly':  `https://polygonscan.com/tx/${hash}`,
+                'arb':   `https://arbiscan.io/tx/${hash}`,
+                'base':  `https://basescan.org/tx/${hash}`,
+            };
+            return explorers[network] || `https://blockscan.com/tx/${hash}`;
+        }
+
         async function viewTransaction(ref) {
             try {
                 const headers = { 'Authorization': `Bearer ${adminKey}` };
@@ -1132,7 +1149,7 @@
                 const hashLink = document.getElementById('modal-hash-link');
                 if (tx.hash) {
                     hashLink.innerText = tx.hash;
-                    hashLink.href = `https://solscan.io/tx/${tx.hash}`;
+                    hashLink.href = getExplorerUrl(tx.hash, tx.asset);
                     hashLink.style.color = 'var(--sidebar-bg)';
                     hashLink.style.pointerEvents = 'auto';
                 } else {
