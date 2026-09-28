@@ -125,7 +125,7 @@ ${rate ? `📊 Rate: ₦${Number(rate).toLocaleString()}` : ''}
 Crypto has been sent to your wallet. 🎉
 
 Ref: <code>${reference}</code>
-${explorerLink ? `🔗 <a href="${explorerLink}">View on Explorer</a>\n` : ''}
+${explorerLink ? `\n🔗 <b>Verify on Blockchain:</b>\n<a href="${explorerLink}">${explorerLink}</a>` : ''}
 
 <i>powered by usevelcro.com</i>
 `;
